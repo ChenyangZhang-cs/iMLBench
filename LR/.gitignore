@@ -1,0 +1,6 @@
+*.o
+a.out
+build/*
+*.S
+assets/_results.txt
+.vscode/

@@ -1,0 +1,30 @@
+
+> HOUSE REGRESSION (545)
+
+	Parallelized
+	--------
+	| R squared: -2147483648%
+	| Time: 0.034ms
+	| Equation: y = -nanx + -nan
+
+	Iterative
+	--------
+	| R squared: -2147483648%
+	| Time: 0.084ms
+	| Equation: y = -nanx + -nan
+
+
+> TEMPERATURE REGRESSION (96453)
+
+	Parallelized
+	--------
+	| R squared: -2147483648%
+	| Time: 0.060ms
+	| Equation: y = -nanx + -nan
+
+	Iterative
+	--------
+	| R squared: -2147483648%
+	| Time: 2.671ms
+	| Equation: y = -nanx + -nan
+
