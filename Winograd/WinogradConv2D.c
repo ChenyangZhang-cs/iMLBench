@@ -3,7 +3,6 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
-
 #include <CL/cl.h>
 
 #include "./common/polybenchUtilFuncts.h"
@@ -14,7 +13,7 @@
 #define MAX_SOURCE_SIZE (0x100000)
 
 /* Problem size */
-#define N 1024
+#define N 2048    // 若凡：改成了二维相等
 // #define NI 8192
 // #define NJ 8192
 
@@ -42,9 +41,9 @@ cl_context clGPUContext;
 cl_kernel clKernel;
 cl_command_queue clCommandQue;
 cl_program clProgram;
-cl_mem a_mem_obj;
-cl_mem b_mem_obj;
-cl_mem c_mem_obj;
+DATA_TYPE* a_mem_obj;
+DATA_TYPE* b_mem_obj;
+DATA_TYPE* c_mem_obj;
 FILE *fp;
 char *source_str;
 size_t source_size;
@@ -54,7 +53,7 @@ int cpu_offset, loops;
 void WinogradConv2D_2x2_omp(DATA_TYPE *input, DATA_TYPE *output, DATA_TYPE *transformed_filter, size_t *cpu_global_size);
 
 
-void read_cl_file()
+void read_cl_file()  // 若凡：修改了文件名
 {
     // Load the kernel source code into the array source_str
     fp = fopen("WinogradConv2D_2x2.cl", "r");
@@ -115,28 +114,6 @@ void cl_initialization()
     if(errcode != CL_SUCCESS) printf("Error in creating command queue\n");
 }
 
-
-void cl_mem_init(DATA_TYPE* A, DATA_TYPE* C)
-{
-    a_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_ONLY, sizeof(DATA_TYPE) * N * N, NULL, &errcode);
-    b_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * (N-2) * (N-2), NULL, &errcode);
-    // transformed filter
-    c_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_ONLY, sizeof(DATA_TYPE) * 4 * 4, NULL, &errcode);
-    
-    if(errcode != CL_SUCCESS) printf("Error in creating buffers\n");
-
-    double t_start = rtclock();
-    errcode = clEnqueueWriteBuffer(clCommandQue, a_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * N * N, A, 0, NULL, NULL);
-    if(errcode != CL_SUCCESS)printf("Error in writing buffers\n");
-
-    // transformed filter
-    errcode = clEnqueueWriteBuffer(clCommandQue, c_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * 4 * 4, C, 0, NULL, NULL);
-    if(errcode != CL_SUCCESS)printf("Error in writing buffers\n");
-    double t_end = rtclock();
-    printf("CPU to GPU Write Time: %lf ms\n", 1000.0*(t_end - t_start));
-}
-
-
 void cl_load_prog()
 {
     // Create a program from the kernel source
@@ -155,18 +132,18 @@ void cl_load_prog()
 }
 
 
-void cl_launch_kernel()
+void cl_launch_kernel()  // 若凡：有一点改动
 {
     double t_start, t_end;
     int in_map_size = N;
-    int out_map_size = N - 2;
+    int out_map_size = N - 2;  // 这里
     int tile_n = (out_map_size + 1) / 2;
 
     size_t localWorkSize[2], globalWorkSize[2];
     localWorkSize[0] = DIM_LOCAL_WORK_GROUP_X;
     localWorkSize[1] = DIM_LOCAL_WORK_GROUP_Y;
-    globalWorkSize[0] = (size_t)ceil(((float)tile_n) / ((float)DIM_LOCAL_WORK_GROUP_X)) * DIM_LOCAL_WORK_GROUP_X;
-    globalWorkSize[1] = (size_t)ceil(((float)tile_n) / ((float)DIM_LOCAL_WORK_GROUP_Y)) * DIM_LOCAL_WORK_GROUP_Y;
+    globalWorkSize[0] = (size_t)ceil(((float)tile_n) / ((float)DIM_LOCAL_WORK_GROUP_X)) * DIM_LOCAL_WORK_GROUP_X;  // 这里
+    globalWorkSize[1] = (size_t)ceil(((float)tile_n) / ((float)DIM_LOCAL_WORK_GROUP_Y)) * DIM_LOCAL_WORK_GROUP_Y;  // 这里
 
     size_t cpu_global_size[2];
     cpu_global_size[0] = cpu_offset * (size_t)ceil(((float)tile_n) / ((float)DIM_LOCAL_WORK_GROUP_X)) / 100 * DIM_LOCAL_WORK_GROUP_X;  // 这里
@@ -177,7 +154,7 @@ void cl_launch_kernel()
     size_t global_offset[2];
     global_offset[0] = cpu_global_size[0];
     // global_offset[1] = 1;
-    global_offset[1] = 0;
+    global_offset[1] = 0;  // 这里
 
     bool cpu_run = false, gpu_run = false;
     if (cpu_global_size[0] > 0)
@@ -190,78 +167,40 @@ void cl_launch_kernel()
     }
 
     t_start = rtclock();
-    DATA_TYPE *b_mem_cpu;
-    DATA_TYPE *a_mem_cpu;
-    DATA_TYPE *c_mem_cpu;
     cl_event kernelEvent1;
-
-        if (gpu_run)
-        {
-            // Set the arguments of the kernel  
-            errcode =  clSetKernelArg(clKernel, 0, sizeof(cl_mem), (void *)&a_mem_obj);
-            errcode |= clSetKernelArg(clKernel, 1, sizeof(cl_mem), (void *)&b_mem_obj);
-            errcode |= clSetKernelArg(clKernel, 2, sizeof(cl_mem), (void *)&c_mem_obj);
-            errcode |=  clSetKernelArg(clKernel, 3, sizeof(int), &in_map_size);
-            errcode |= clSetKernelArg(clKernel, 4, sizeof(int), &out_map_size);
-            if (errcode != CL_SUCCESS)
-                printf("Error in seting arguments\n");
-
-            errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel, 2, global_offset, gpu_global_size, localWorkSize, 0, NULL,&kernelEvent1);
-            t_start = rtclock();
-            if (errcode != CL_SUCCESS)
-                printf("Error in launching kernel\n");
-        }
-        if (cpu_run)
-        {
-            double t_start1 = rtclock();
-            b_mem_cpu = (DATA_TYPE *)malloc(sizeof(DATA_TYPE) * (N-2) * (N-2));
-            c_mem_cpu = (DATA_TYPE *)malloc(sizeof(DATA_TYPE) * 4 * 4);
-            a_mem_cpu = (DATA_TYPE *)malloc(N * N * sizeof(DATA_TYPE));
-            errcode = clEnqueueReadBuffer(clCommandQue, a_mem_obj, CL_TRUE, 0, 
-                    sizeof(DATA_TYPE) * N * N, a_mem_cpu, 0, NULL, NULL);
-            errcode |= clEnqueueReadBuffer(clCommandQue, c_mem_obj, CL_TRUE, 0, 
-                    sizeof(DATA_TYPE) * 4 * 4, c_mem_cpu, 0, NULL, NULL);
-            if (errcode != CL_SUCCESS)
-                printf("Error in read buffer\n");
-            double t_end2 = rtclock();
-            fprintf(stdout, "before conrun GPU to CPU read time: %lf ms\n", 1000.0 * (t_end2 - t_start1));
-
-            printf("CPU size: %d\n", cpu_global_size[0]);
-            WinogradConv2D_2x2_omp(a_mem_cpu, b_mem_cpu, c_mem_cpu, cpu_global_size);
-            // errcode = clEnqueueWriteBuffer(clCommandQue, b_mem_obj, CL_TRUE, global_offset[0], 
-            //       sizeof(DATA_TYPE) * (N-2) * (N-2), b_mem_cpu, 0, NULL, NULL); 
-            if (gpu_run) {
-                errcode = clEnqueueWriteBuffer(clCommandQue, b_mem_obj, CL_TRUE, 0, 
-                  sizeof(DATA_TYPE)*global_offset[0]*2*(N-2), b_mem_cpu, 0, NULL, NULL);
-            }
-            else {
-                errcode = clEnqueueWriteBuffer(clCommandQue, b_mem_obj, CL_TRUE, 0, 
-                  sizeof(DATA_TYPE)*(N-2)*(N-2), b_mem_cpu, 0, NULL, NULL); 
-            }
-            
-
-            if (errcode != CL_SUCCESS)
-                printf("Error in write buffer\n");
-
-            double t_end1 = rtclock();
-            fprintf(stdout, "CPU time: %lf ms\n", 1000.0 * (t_end1 - t_start1));
-        }
+    if (gpu_run)
+    {
+        // Set the arguments of the kernel  
+        // errcode =  clSetKernelArg(clKernel, 0, sizeof(cl_mem), (void *)&a_mem_obj);
+        // errcode |= clSetKernelArg(clKernel, 1, sizeof(cl_mem), (void *)&b_mem_obj);
+        // errcode |= clSetKernelArg(clKernel, 2, sizeof(cl_mem), (void *)&c_mem_obj);  // 这里
+        errcode =  clSetKernelArgSVMPointer(clKernel, 0, (void *)a_mem_obj);
+        errcode |= clSetKernelArgSVMPointer(clKernel, 1, (void *)b_mem_obj);
+        errcode |= clSetKernelArgSVMPointer(clKernel, 2, (void *)c_mem_obj);  // 这里      
+        errcode |=  clSetKernelArg(clKernel, 3, sizeof(int), &in_map_size);  // 这里
+        errcode |= clSetKernelArg(clKernel, 4, sizeof(int), &out_map_size);  // 这里
+        if (errcode != CL_SUCCESS)
+            printf("Error in seting arguments\n");
+        errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel, 2, global_offset, gpu_global_size, localWorkSize, 0, NULL,&kernelEvent1);
+        t_start = rtclock();
+        if (errcode != CL_SUCCESS)
+            printf("Error in launching kernel\n");
+    }
+    if (cpu_run)
+    {
+        double t_start1 = rtclock();
+        printf("CPU size: %d\n", cpu_global_size[0]);
+        WinogradConv2D_2x2_omp(a_mem_obj, b_mem_obj, c_mem_obj, cpu_global_size);
+        double t_end1 = rtclock();
+        fprintf(stdout, "CPU time: %lf ms\n", 1000.0 * (t_end1 - t_start1));
+    }
     if (gpu_run)
     {
         cl_int err = clWaitForEvents(1, &kernelEvent1);
         if (err != CL_SUCCESS)
             printf("ERROR in corun\n");
     }
-
-        if (cpu_run){
-            free(b_mem_cpu);
-            free(c_mem_cpu);  // 这里
-            free(a_mem_cpu);  // 这里
-        }
-        
-
     t_end = rtclock();
-    
     fprintf(stdout, "Total time: %lf ms\n", 1000.0 * (t_end - t_start));
 }
 
@@ -272,9 +211,12 @@ void cl_clean_up()
     errcode = clFinish(clCommandQue);
     errcode = clReleaseKernel(clKernel);
     errcode = clReleaseProgram(clProgram);
-    errcode = clReleaseMemObject(a_mem_obj);
-    errcode = clReleaseMemObject(b_mem_obj);
-    errcode = clReleaseMemObject(c_mem_obj);
+    // errcode = clReleaseMemObject(a_mem_obj);
+    // errcode = clReleaseMemObject(b_mem_obj);
+    // errcode = clReleaseMemObject(c_mem_obj);
+    clSVMFree(clGPUContext, a_mem_obj);
+    clSVMFree(clGPUContext, b_mem_obj);
+    clSVMFree(clGPUContext, c_mem_obj);
     errcode = clReleaseCommandQueue(clCommandQue);
     errcode = clReleaseContext(clGPUContext);
     if(errcode != CL_SUCCESS) printf("Error in cleanup\n");
@@ -325,15 +267,10 @@ void WinogradConv2D_2x2_omp(DATA_TYPE *input, DATA_TYPE *output, DATA_TYPE *tran
     int out_map_size = N - 2;
     int tile_n = (out_map_size + 1) / 2;
 
-    // for (int tile_i = 0; tile_i < tile_n; tile_i ++) {
-    //     for (int tile_j = 0; tile_j < cpu_global_size[0]; tile_j ++) {
-#pragma omp parallel
+    #pragma omp parallel for
     for (int tile_i = 0; tile_i < cpu_global_size[0]; tile_i ++) {
-#pragma omp for
         for (int tile_j = 0; tile_j < tile_n; tile_j ++) {
-
             // input transformation
-
             DATA_TYPE input_tile[4][4], tmp_tile[4][4], transformed_tile[4][4];
             for (int i = 0; i < 4; i ++) {
                 for (int j = 0; j < 4; j ++) { 
@@ -420,7 +357,7 @@ void WinogradConv2D_2x2_omp(DATA_TYPE *input, DATA_TYPE *output, DATA_TYPE *tran
 }
 
 
-void compareResults(DATA_TYPE* B, DATA_TYPE* B_outputFromGpu)
+void compareResults(DATA_TYPE* B, DATA_TYPE* B_outputFromGpu)  // 若凡：有改动
 {
     int i, j, fail;
     fail = 0;
@@ -549,44 +486,28 @@ int main(int argc, char *argv[])
     double t_start, t_end;
     int i;
 
-    DATA_TYPE* A;
-    DATA_TYPE* B;  
-    DATA_TYPE* B_outputFromGpu;
-    DATA_TYPE* C;
-    
-    A = (DATA_TYPE*)malloc(N*N*sizeof(DATA_TYPE));
-    B = (DATA_TYPE*)malloc((N-2)*(N-2)*sizeof(DATA_TYPE));
-    B_outputFromGpu = (DATA_TYPE*)malloc((N-2)*(N-2)*sizeof(DATA_TYPE));
-    C = (DATA_TYPE*)malloc(4*4*sizeof(DATA_TYPE));
-    WinogradConv2D_2x2_filter_transformation(C);
-
-    init(A);
+    DATA_TYPE *B = (DATA_TYPE*)malloc((N-2)*(N-2)*sizeof(DATA_TYPE));
 
     read_cl_file();
     cl_initialization();
-    cl_mem_init(A, C);
     cl_load_prog();
+    a_mem_obj = (DATA_TYPE *)clSVMAlloc(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * N * N, 0);
+    b_mem_obj = (DATA_TYPE *)clSVMAlloc(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * (N-2) * (N-2), 0);
+    c_mem_obj = (DATA_TYPE *)clSVMAlloc(clGPUContext, CL_MEM_READ_ONLY, sizeof(DATA_TYPE) * 4 * 4, 0);
+    if (a_mem_obj == NULL || b_mem_obj == NULL || c_mem_obj == NULL)
+        printf("clSVMAlloc failed\n");
+    WinogradConv2D_2x2_filter_transformation(c_mem_obj);  // 这里
+    init(a_mem_obj);
 
-    for (int i = 0; i < 10; i ++) {
-        cl_launch_kernel();
-    }
-
+    cl_launch_kernel();
+    
     t_start = rtclock();
-    errcode = clEnqueueReadBuffer(clCommandQue, b_mem_obj, CL_TRUE, 0, (N-2)*(N-2)*sizeof(DATA_TYPE), B_outputFromGpu, 0, NULL, NULL);
-    if(errcode != CL_SUCCESS) printf("Error in reading GPU mem\n");
-    t_end = rtclock();
-    printf("GPU to CPU Read Time: %lf ms\n", 1000.0*(t_end - t_start));
-
-    t_start = rtclock();
-    WinogradConv2D_2x2(A, B, C);
+    WinogradConv2D_2x2(a_mem_obj, B, c_mem_obj);  // 这里
     t_end = rtclock(); 
     fprintf(stdout, "CPU Runtime: %0.6lfs\n", t_end - t_start);   
-    compareResults(B, B_outputFromGpu);
+    compareResults(B, b_mem_obj);
 
-    free(A);
     free(B);
-    free(B_outputFromGpu);
-    free(C);
 
     cl_clean_up();
         return 0;
