@@ -8,7 +8,7 @@ Currently, we provide machine learning workloads including Linear Regression (LR
 We provide OpenMP and OpenCL implementations for CPU-only, GPU-only, CPU-GPU co-running common machine learning applications.
 
 ## Paper
-Our related paper, ``iMLBench: A Machine Learning Benchmark Suite for CPU-GPU Integrated Architectures'', has been submitted to the TPDS and is currently under review (major revision). We will add more descriptions after acceptance.
+Our related paper, ``iMLBench: A Machine Learning Benchmark Suite for CPU-GPU Integrated Architectures'', has been submitted to the TPDS and is currently under review (minor revision and is about to release soon!). We will add more descriptions after acceptance.
 
 ## Acknowledgement
 If you have problems, please contact Chenyang Zhang:
