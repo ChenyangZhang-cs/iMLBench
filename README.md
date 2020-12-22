@@ -13,7 +13,7 @@ Our related paper, ''iMLBench: A Machine Learning Benchmark Suite for CPU-GPU In
 ```
 @article{iMLBench,
   title={{iMLBench: A Machine Learning Benchmark Suite for CPU-GPU Integrated Architectures}},
-  author={Zhang, Chenyang and Zhang, Feng and Guo, Xiaoguang and He, Bingsheng and Du, Xiaoyong},
+  author={Zhang, Chenyang and Zhang, Feng and Guo, Xiaoguang and He, Bingsheng and Zhang, Xiao and Du, Xiaoyong},
   journal={IEEE Transactions on Parallel and Distributed Systems (TPDS)},
   howpublished={\url{https://github.com/ChenyangZhang-cs/iMLBench}},
   year={2020},
