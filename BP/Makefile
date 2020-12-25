@@ -1,4 +1,4 @@
-include ../common/make.config
+include ./make.config
 
 # C compiler
 NVCC = nvcc

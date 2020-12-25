@@ -107,18 +107,7 @@ float *OpenClFindNearestNeighbors(
     if (status)
         exit(1);
 
-    // 2. set up memory on device and send ipts data to device
-    // copy ipts(1,2) to device
-    // also need to alloate memory for the distancePoints
-    /*
-    cl_mem d_locations;
-    cl_mem d_distances;
-    d_locations = clCreateBuffer(context, CL_MEM_READ_ONLY,
-        sizeof(LatLong) * numRecords, NULL, &error);
 
-    d_distances = clCreateBuffer(context, CL_MEM_READ_WRITE,
-        sizeof(float) * numRecords, NULL, &error);
-        */
 
     cl_int error = 0;
     void *d_locations = clSVMAlloc(context, CL_MEM_READ_ONLY, sizeof(LatLong) * numRecords, 0);
@@ -126,21 +115,10 @@ float *OpenClFindNearestNeighbors(
 
     cl_command_queue command_queue = cl_getCommandQueue();
     cl_event writeEvent, kernelEvent, readEvent;
-    /*
-    error = clEnqueueWriteBuffer(command_queue,
-               d_locations,
-               1, // change to 0 for nonblocking write
-               0, // offset
-               sizeof(LatLong) * numRecords,
-               &locations[0],
-               0,
-               NULL,
-               &writeEvent);*/
+
     memcpy(d_locations, &locations[0], sizeof(LatLong) * numRecords);
 
-    // 3. send arguments to device
 
-    // 4. enqueue kernel
     size_t globalWorkSize[1];
     globalWorkSize[0] = numRecords;
     if (numRecords % 64)
@@ -225,16 +203,6 @@ float *OpenClFindNearestNeighbors(
 
     // create distances std::vector
     float *distances = (float *)d_distances;
-    /*
-    error = clEnqueueReadBuffer(command_queue,
-        d_distances,
-        1, // change to 0 for nonblocking write
-        0, // offset
-        sizeof(float) * numRecords,
-        distances,
-        0,
-        NULL,
-        &readEvent);*/
 
     if (timing)
     {

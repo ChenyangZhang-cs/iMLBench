@@ -5,7 +5,7 @@
 #include <math.h>
 #include <CL/cl.h>
 
-#include "./common/polybenchUtilFuncts.h"
+#include "../polybenchUtilFuncts.h"
 
 //define the error threshold for the results "not matching"
 #define PERCENT_DIFF_ERROR_THRESHOLD 1.05

@@ -17,7 +17,7 @@
 /*                                                                           */
 /*2       Redistributions in binary form must reproduce the above copyright   */
 /*        notice, this list of conditions and the following disclaimer in the */
-/*        documentation and/or other materials provided with the distribution.*/ 
+/*        documentation and/or other materials provided with the distribution.*/
 /*                                                                            */
 /*3       Neither the name of Northwestern University nor the names of its    */
 /*        contributors may be used to endorse or promote products derived     */
@@ -70,12 +70,12 @@
 /*************************************************************************/
 #define _CRT_SECURE_NO_DEPRECATE 1
 
+#include <fcntl.h>
+#include <limits.h>
+#include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
-#include <math.h>
-#include <fcntl.h>
-#include <omp.h>
-#include "kmeans.h"
 #include <unistd.h>
+#include "kmeans.h"

@@ -7,11 +7,11 @@
  * Web address: http://www.cse.ohio-state.edu/~pouchet/software/polybench/GPU
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <sys/time.h>
-#include <math.h>
+#include <time.h>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -19,7 +19,7 @@
 #include <CL/cl.h>
 #endif
 
-#include "./common/polybenchUtilFuncts.h"
+#include "./polybenchUtilFuncts.h"
 
 //define the error threshold for the results "not matching"
 #define PERCENT_DIFF_ERROR_THRESHOLD 1.05
@@ -35,9 +35,9 @@
 #define DIM_LOCAL_WORK_GROUP_X 32
 #define DIM_LOCAL_WORK_GROUP_Y 8
 
-#if defined(cl_khr_fp64) // Khronos extension available?
+#if defined(cl_khr_fp64)  // Khronos extension available?
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#elif defined(cl_amd_fp64) // AMD extension available?
+#elif defined(cl_amd_fp64)  // AMD extension available?
 #pragma OPENCL EXTENSION cl_amd_fp64 : enable
 #endif
 
@@ -58,14 +58,13 @@ cl_context clGPUContext;
 cl_kernel clKernel;
 cl_command_queue clCommandQue;
 cl_program clProgram;
-DATA_TYPE *a_mem_obj;
-DATA_TYPE *b_mem_obj;
-FILE *fp;
-char *source_str;
+DATA_TYPE* a_mem_obj;
+DATA_TYPE* b_mem_obj;
+FILE* fp;
+char* source_str;
 size_t source_size;
 
-void Convolution3D_omp(DATA_TYPE *A, DATA_TYPE *B, int ni, int nj, int nk, int i)
-{
+void Convolution3D_omp(DATA_TYPE* A, DATA_TYPE* B, int ni, int nj, int nk, int i) {
     DATA_TYPE c11, c12, c13, c21, c22, c23, c31, c32, c33;
     c11 = +2;
     c21 = +5;
@@ -77,46 +76,37 @@ void Convolution3D_omp(DATA_TYPE *A, DATA_TYPE *B, int ni, int nj, int nk, int i
     c23 = +7;
     c33 = +10;
 
-    for (int k = 1; k < nk - 1; k++)
-    {
-        for (int j = 1; j < nj - 1; j++)
-        {
+    for (int k = 1; k < nk - 1; k++) {
+        for (int j = 1; j < nj - 1; j++) {
             B[i * (nk * nj) + j * nk + k] = c11 * A[(i - 1) * (nk * nj) + (j - 1) * nk + (k - 1)] + c13 * A[(i + 1) * (nk * nj) + (j - 1) * nk + (k - 1)] + c21 * A[(i - 1) * (nk * nj) + (j - 1) * nk + (k - 1)] + c23 * A[(i + 1) * (nk * nj) + (j - 1) * nk + (k - 1)] + c31 * A[(i - 1) * (nk * nj) + (j - 1) * nk + (k - 1)] + c33 * A[(i + 1) * (nk * nj) + (j - 1) * nk + (k - 1)] + c12 * A[(i + 0) * (nk * nj) + (j - 1) * nk + (k + 0)] + c22 * A[(i + 0) * (nk * nj) + (j + 0) * nk + (k + 0)] + c32 * A[(i + 0) * (nk * nj) + (j + 1) * nk + (k + 0)] + c11 * A[(i - 1) * (nk * nj) + (j - 1) * nk + (k + 1)] + c13 * A[(i + 1) * (nk * nj) + (j - 1) * nk + (k + 1)] + c21 * A[(i - 1) * (nk * nj) + (j + 0) * nk + (k + 1)] + c23 * A[(i + 1) * (nk * nj) + (j + 0) * nk + (k + 1)] + c31 * A[(i - 1) * (nk * nj) + (j + 1) * nk + (k + 1)] + c33 * A[(i + 1) * (nk * nj) + (j + 1) * nk + (k + 1)];
         }
     }
 }
 
-void read_cl_file()
-{
+void read_cl_file() {
     // Load the kernel source code into the array source_str
     fp = fopen("3DConvolution.cl", "r");
-    if (!fp)
-    {
+    if (!fp) {
         fprintf(stderr, "Failed to load kernel.\n");
         exit(1);
     }
-    source_str = (char *)malloc(MAX_SOURCE_SIZE);
+    source_str = (char*)malloc(MAX_SOURCE_SIZE);
     source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
     fclose(fp);
 }
 
-void init(DATA_TYPE *A)
-{
+void init(DATA_TYPE* A) {
     int i, j, k;
-    for (i = 0; i < NI; ++i)
-    {
-        for (j = 0; j < NJ; ++j)
-        {
-            for (k = 0; k < NK; ++k)
-            {
+    for (i = 0; i < NI; ++i) {
+        for (j = 0; j < NJ; ++j) {
+            for (k = 0; k < NK; ++k) {
                 A[i * (NK * NJ) + j * NK + k] = i % 12 + 2 * (j % 7) + 3 * (k % 13);
             }
         }
     }
 }
 
-void cl_initialization()
-{
+void cl_initialization() {
     // Get platform and device information
     errcode = clGetPlatformIDs(1, &platform_id, &num_platforms);
     if (errcode == CL_SUCCESS)
@@ -159,25 +149,9 @@ void cl_initialization()
         printf("Error in creating command queue\n");
 }
 
-void cl_mem_init(DATA_TYPE *A, DATA_TYPE *B)
-{
-    /*
-    a_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_ONLY, sizeof(DATA_TYPE) * NI * NJ * NK, NULL, &errcode);
-	b_mem_obj = clCreateBuffer(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * NI * NJ * NK, NULL, &errcode);
-	
-	if(errcode != CL_SUCCESS) printf("Error in creating buffers\n");
-
-	errcode = clEnqueueWriteBuffer(clCommandQue, a_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * NI * NJ * NK, A, 0, NULL, NULL);
-	errcode = clEnqueueWriteBuffer(clCommandQue, b_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * NI * NJ * NK, B, 0, NULL, NULL);
-	if(errcode != CL_SUCCESS)printf("Error in writing buffers\n");
-    */
-    a_mem_obj = A;
-}
-
-void cl_load_prog()
-{
+void cl_load_prog() {
     // Create a program from the kernel source
-    clProgram = clCreateProgramWithSource(clGPUContext, 1, (const char **)&source_str, (const size_t *)&source_size, &errcode);
+    clProgram = clCreateProgramWithSource(clGPUContext, 1, (const char**)&source_str, (const size_t*)&source_size, &errcode);
 
     if (errcode != CL_SUCCESS)
         printf("Error in creating program\n");
@@ -194,8 +168,7 @@ void cl_load_prog()
     //clFinish(clCommandQue);
 }
 
-void cl_launch_kernel()
-{
+void cl_launch_kernel() {
     double t_start, t_end;
     int ni = NI;
     int nj = NJ;
@@ -209,49 +182,44 @@ void cl_launch_kernel()
 
     bool cpu_run = false, gpu_run = false;
 
-    b_mem_obj = (DATA_TYPE *)clSVMAlloc(clGPUContext, CL_MEM_READ_WRITE, NI * NJ * NK * sizeof(DATA_TYPE), 0);
+    b_mem_obj = (DATA_TYPE*)clSVMAlloc(clGPUContext, CL_MEM_READ_WRITE, NI * NJ * NK * sizeof(DATA_TYPE), 0);
 
     int cpu_ni = cpu_offset * NI / 100;
     int gpu_ni = NI - cpu_ni - 1;
-    if (cpu_ni > 0)
-    {
+    if (cpu_ni > 0) {
         cpu_run = true;
     }
-    if (gpu_ni > 0)
-    {
+    if (gpu_ni > 0) {
         gpu_run = true;
     }
     cl_event eventList;
 
-        errcode = clFlush(clCommandQue);
-            errcode = clFinish(clCommandQue);
+    errcode = clFlush(clCommandQue);
+    errcode = clFinish(clCommandQue);
     t_start = rtclock();
 
-    if (gpu_run)
-    {
-      double t1 = rtclock();
-        errcode = clSetKernelArgSVMPointer(clKernel, 0, (void *)a_mem_obj);
-        errcode |= clSetKernelArgSVMPointer(clKernel, 1, (void *)b_mem_obj);
-        errcode |= clSetKernelArg(clKernel, 2, sizeof(int), (void *)&ni);
-        errcode |= clSetKernelArg(clKernel, 3, sizeof(int), (void *)&nj);
-        errcode |= clSetKernelArg(clKernel, 4, sizeof(int), (void *)&nk);
+    if (gpu_run) {
+        double t1 = rtclock();
+        errcode = clSetKernelArgSVMPointer(clKernel, 0, (void*)a_mem_obj);
+        errcode |= clSetKernelArgSVMPointer(clKernel, 1, (void*)b_mem_obj);
+        errcode |= clSetKernelArg(clKernel, 2, sizeof(int), (void*)&ni);
+        errcode |= clSetKernelArg(clKernel, 3, sizeof(int), (void*)&nj);
+        errcode |= clSetKernelArg(clKernel, 4, sizeof(int), (void*)&nk);
         if (errcode != CL_SUCCESS)
             printf("Error in seting arguments\n");
-        for (int i = cpu_ni + 1; i < NI - 1; ++i) 
-        {
+        for (int i = cpu_ni + 1; i < NI - 1; ++i) {
             errcode |= clSetKernelArg(clKernel, 5, sizeof(int), &i);
             errcode = clEnqueueNDRangeKernel(clCommandQue, clKernel, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &eventList);
         }
         if (errcode != CL_SUCCESS)
             printf("Error in launching kernel\n");
-double t2 = rtclock();
-printf("time: %f ms\n", 1000*(t2-t1));
-
+        double t2 = rtclock();
+        printf("time: %f ms\n", 1000 * (t2 - t1));
     }
-    if(cpu_run){
-      printf("cpu running\n");
-        cpu_ni  = cpu_ni > (NI-2)? (NI-2):cpu_ni;
-        for (int i = 1; i <= cpu_ni; ++i){
+    if (cpu_run) {
+        printf("cpu running\n");
+        cpu_ni = cpu_ni > (NI - 2) ? (NI - 2) : cpu_ni;
+        for (int i = 1; i <= cpu_ni; ++i) {
             Convolution3D_omp(a_mem_obj, b_mem_obj, ni, nj, nk, i);
         }
     }
@@ -262,8 +230,7 @@ printf("time: %f ms\n", 1000*(t2-t1));
     fprintf(stdout, "GPU time: %lf ms\n", 1000.0 * (t_end - t_start));
 }
 
-void cl_clean_up()
-{
+void cl_clean_up() {
     // Clean up
     errcode = clFlush(clCommandQue);
     errcode = clFinish(clCommandQue);
@@ -275,20 +242,18 @@ void cl_clean_up()
         printf("Error in cleanup\n");
 }
 
-void compareResults(DATA_TYPE *B, DATA_TYPE *B_outputFromGpu)
-{
+void compareResults(DATA_TYPE* B, DATA_TYPE* B_outputFromGpu) {
     int i, j, k, fail;
     fail = 0;
 
     // Compare result from cpu and gpu...
-    for (i = 1; i < NI - 1; ++i) // 0
+    for (i = 1; i < NI - 1; ++i)  // 0
     {
-        for (j = 1; j < NJ - 1; ++j) // 1
+        for (j = 1; j < NJ - 1; ++j)  // 1
         {
-            for (k = 1; k < NK - 1; ++k) // 2
+            for (k = 1; k < NK - 1; ++k)  // 2
             {
-                if (percentDiff(B[i * (NK * NJ) + j * NK + k], B_outputFromGpu[i * (NK * NJ) + j * NK + k]) > PERCENT_DIFF_ERROR_THRESHOLD)
-                {
+                if (percentDiff(B[i * (NK * NJ) + j * NK + k], B_outputFromGpu[i * (NK * NJ) + j * NK + k]) > PERCENT_DIFF_ERROR_THRESHOLD) {
                     fail++;
                 }
             }
@@ -299,8 +264,7 @@ void compareResults(DATA_TYPE *B, DATA_TYPE *B_outputFromGpu)
     printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %d\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
 }
 
-void conv3D(DATA_TYPE *A, DATA_TYPE *B)
-{
+void conv3D(DATA_TYPE* A, DATA_TYPE* B) {
     int i, j, k;
     DATA_TYPE c11, c12, c13, c21, c22, c23, c31, c32, c33;
 
@@ -314,38 +278,34 @@ void conv3D(DATA_TYPE *A, DATA_TYPE *B)
     c23 = +7;
     c33 = +10;
 
-    for (i = 1; i < NI - 1; ++i) // 0
+    for (i = 1; i < NI - 1; ++i)  // 0
     {
-        for (j = 1; j < NJ - 1; ++j) // 1
+        for (j = 1; j < NJ - 1; ++j)  // 1
         {
-            for (k = 1; k < NK - 1; ++k) // 2
+            for (k = 1; k < NK - 1; ++k)  // 2
             {
-                //printf("i:%d\nj:%d\nk:%d\n", i, j, k);
                 B[i * (NK * NJ) + j * NK + k] = c11 * A[(i - 1) * (NK * NJ) + (j - 1) * NK + (k - 1)] + c13 * A[(i + 1) * (NK * NJ) + (j - 1) * NK + (k - 1)] + c21 * A[(i - 1) * (NK * NJ) + (j - 1) * NK + (k - 1)] + c23 * A[(i + 1) * (NK * NJ) + (j - 1) * NK + (k - 1)] + c31 * A[(i - 1) * (NK * NJ) + (j - 1) * NK + (k - 1)] + c33 * A[(i + 1) * (NK * NJ) + (j - 1) * NK + (k - 1)] + c12 * A[(i + 0) * (NK * NJ) + (j - 1) * NK + (k + 0)] + c22 * A[(i + 0) * (NK * NJ) + (j + 0) * NK + (k + 0)] + c32 * A[(i + 0) * (NK * NJ) + (j + 1) * NK + (k + 0)] + c11 * A[(i - 1) * (NK * NJ) + (j - 1) * NK + (k + 1)] + c13 * A[(i + 1) * (NK * NJ) + (j - 1) * NK + (k + 1)] + c21 * A[(i - 1) * (NK * NJ) + (j + 0) * NK + (k + 1)] + c23 * A[(i + 1) * (NK * NJ) + (j + 0) * NK + (k + 1)] + c31 * A[(i - 1) * (NK * NJ) + (j + 1) * NK + (k + 1)] + c33 * A[(i + 1) * (NK * NJ) + (j + 1) * NK + (k + 1)];
             }
         }
     }
 }
 
-int main(int argc, char *argv[])
-{
-    if (argc != 2)
-    {
-        printf("usage: < num of input elements>\n");
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        printf("usage: 3D <number of cpu offset (0~100)>\n");
         exit(0);
     }
     cpu_offset = atoi(argv[1]);
-//    loops = atoi(argv[1]);
 
     double t_start, t_end;
     cl_initialization();
 
-    DATA_TYPE *A;
-    DATA_TYPE *B;
-    DATA_TYPE *B_outputFromGpu;
+    DATA_TYPE* A;
+    DATA_TYPE* B;
+    DATA_TYPE* B_outputFromGpu;
 
-    A = (DATA_TYPE *)clSVMAlloc(clGPUContext, CL_MEM_READ_WRITE, NI * NJ * NK * sizeof(DATA_TYPE), 0);
-    B = (DATA_TYPE *)malloc(NI * NJ * NK * sizeof(DATA_TYPE));
+    A = (DATA_TYPE*)clSVMAlloc(clGPUContext, CL_MEM_READ_WRITE, NI * NJ * NK * sizeof(DATA_TYPE), 0);
+    B = (DATA_TYPE*)malloc(NI * NJ * NK * sizeof(DATA_TYPE));
     // B_outputFromGpu = (DATA_TYPE *)malloc(NI * NJ * NK * sizeof(DATA_TYPE));
 
     int i;
@@ -354,7 +314,7 @@ int main(int argc, char *argv[])
     a_mem_obj = A;
     cl_load_prog();
     for (int i = 0; i < 4; i++)
-      cl_launch_kernel();
+        cl_launch_kernel();
     B_outputFromGpu = b_mem_obj;
 
     if (errcode != CL_SUCCESS)
