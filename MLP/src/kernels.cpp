@@ -374,19 +374,8 @@ namespace clnet
         if (gpu_run)
         {
             cl_int err = clWaitForEvents(1, &(eventList()));
-         //   if (err != CL_SUCCESS)//
-         //       printf("Wait error in kernel 1: %d\n", err);
-           // else
-            //printf("kernel 1 finish\n");
-        }
-        //	}
-        //	else {
-        //		cl::NDRange local(parallel);
-        //		cl::NDRange global(N * HIDDEN * parallel);
-        //		I.queue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local, &I.precondition_events, &I.events[peers[0]]);
-        //	}
+
         double t2 = gettime();
-        printf("kernel 1 time: %lf ms\n", 1000*(t2-t1));
     }
     string type::BatchNormalizedLayer::generate_source_code(DeviceInstance &I)
     {
@@ -730,7 +719,6 @@ namespace clnet
             clnet::int64 cpu_start = global_size - cpu_size;
             clnet::int64 gpu_global_size = cpu_start;
             cl::NDRange gpu_global(gpu_global_size);
-            printf("dimout: %d, dimin: %d\n", dim_out, dim_in);
             if (gpu_run)
             {
                 if (in_gradient != nullptr)
@@ -836,7 +824,6 @@ namespace clnet
             }
 
             double t2 = gettime();
-            printf("kernel 8 time: %lf ms\n", 1000*(t2-t1));
 
             auto &kernel1 = I.kernels[this][1];
 
@@ -885,7 +872,6 @@ namespace clnet
                     //printf("kernel 9 finish\n");
                 }
                 double t2 = gettime();
-                printf("kernel 9 time: %lf ms\n", 1000*(t2-t1));
             }
 
             if (in_gradient != nullptr)
@@ -944,7 +930,6 @@ printf("count10: %d\n", count10);*/
                     
                 }
                 double t2 = gettime();
-                printf("kernel 10 time: %lf ms\n", 1000*(t2-t1));
             }
         }
     }
@@ -1150,7 +1135,6 @@ printf("count12: %d\n", count12);*/
                 
             }
             double t2 = gettime();
-            printf("kernel 12 time: %lf ms\n", 1000*(t2-t1));
         }
     }
 
@@ -2007,7 +1991,6 @@ printf("count25: %d\n", count25);
                 //printf("kernel 25 finish\n");
             }
             double t2 = gettime();
-            printf("kernel 12 time: %lf ms\n", 1000*(t2-t1));
         }
     }
 

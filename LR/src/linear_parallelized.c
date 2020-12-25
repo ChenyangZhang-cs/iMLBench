@@ -31,7 +31,6 @@ void rsquaredOMP(data_t* dataset,
                  cl_float equation[2],  // [a0,a1]
                  rsquared_t* result,
                  int cpusize) {
-    printf("CPU running1\n");
     rsquared_t* dist = (rsquared_t*)malloc(sizeof(rsquared_t) * local_size);
 
     for (size_t group_id = 0; group_id < (cpusize / local_size); group_id++) {
@@ -64,7 +63,6 @@ void linear_regressionOMP(
     data_t* dataset,
     sum_t* result,
     int cpusize) {
-    printf("CPU running2\n");
     sum_t* interns = (sum_t*)malloc(sizeof(sum_t) * local_size);
     //int cpusize = local_size * group_id_size * cpu_offset / 100;
 
@@ -431,12 +429,10 @@ void r_squared(
         cpu_run = true;
     }
 
-    printf("CPU size: %d, GPU size: %d\n", cpu_global_size[0], gpu_global_size[0]);
 
     cl_event event1;
 
     if (gpu_run) {
-        printf("GPU running\n");
         err = clSetKernelArgSVMPointer(kernel, 0, (void*)dataset);
         err |= clSetKernelArg(kernel, 1, sizeof(cl_float), (void*)&mean);
         err |= clSetKernelArg(kernel, 2, sizeof(equation), (void*)&equation);
@@ -448,7 +444,6 @@ void r_squared(
             printf("ERROR1 in corun\n");
     }
     if (cpu_run) {
-        printf("CPU running\n");
         rsquaredOMP(dataset, mean, equation, result_buffer, cpu_global_size[0]);
     }
 
@@ -467,7 +462,6 @@ void r_squared(
     rsquared_t* results = (rsquared_t*)result_buffer;
 
     for (int i = 0; i < params->wg_count; i++) {
-        printf("actual: %f, estimated: %f\n", results[i].actual, results[i].estimated);
         final.actual += results[i].actual;
         final.estimated += results[i].estimated;
     }
@@ -537,12 +531,10 @@ void parallelized_regression(
         cpu_run = true;
     }
 
-    printf("CPU size: %d, GPU size: %d\n", cpu_global_size[0], gpu_global_size[0]);
 
     cl_event event2;
 
     if (gpu_run) {
-        printf("GPU running\n");
         err = clSetKernelArgSVMPointer(kernel, 0, (void*)dataset);
         err |= clSetKernelArg(kernel, 1, params->wg_size * sizeof(sum_t), NULL);
         err |= clSetKernelArgSVMPointer(kernel, 2, (void*)(result_buffer + (cpu_global_size[0] / local_size)));
@@ -552,7 +544,6 @@ void parallelized_regression(
             printf("ERROR2 in corun\n");
     }
     if (cpu_run) {
-        printf("CPU running\n");
         linear_regressionOMP(dataset, result_buffer, cpu_global_size[0]);
     }
     if (gpu_run) {

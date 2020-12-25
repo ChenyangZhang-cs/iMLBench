@@ -1,5 +1,5 @@
-../nnData/cane4_0.db
-../nnData/cane4_1.db
-../nnData/cane4_2.db
-../nnData/cane4_3.db
+./data/cane4_0.db
+./data/cane4_1.db
+./data/cane4_2.db
+./data/cane4_3.db
 
