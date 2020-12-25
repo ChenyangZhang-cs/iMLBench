@@ -11,13 +11,15 @@ We provide OpenMP and OpenCL implementations for CPU-only, GPU-only, CPU-GPU co-
 Our related paper, ''iMLBench: A Machine Learning Benchmark Suite for CPU-GPU Integrated Architectures'', can be downloaded from TPDS (https://ieeexplore.ieee.org/document/9305972). If you use our benchmark, please cite our paper:
 
 ```
-@article{iMLBench,
-  title={{iMLBench: A Machine Learning Benchmark Suite for CPU-GPU Integrated Architectures}},
-  author={Zhang, Chenyang and Zhang, Feng and Guo, Xiaoguang and He, Bingsheng and Zhang, Xiao and Du, Xiaoyong},
-  journal={IEEE Transactions on Parallel and Distributed Systems (TPDS)},
-  howpublished={\url{https://github.com/ChenyangZhang-cs/iMLBench}},
-  year={2020},
-  publisher={IEEE}
+@ARTICLE{9305972,  
+    author={C. {Zhang} and F. {Zhang} and X. {Guo} and B. {He} and X. {Zhang} and X. {Du}},  
+    journal={IEEE Transactions on Parallel and Distributed Systems},   
+    title={{iMLBench: A Machine Learning Benchmark Suite for CPU-GPU Integrated Architectures}},   
+    year={2020},  
+    volume={},  
+    number={},  
+    pages={1-1},  
+    doi={10.1109/TPDS.2020.3046870}
 }
 ```
 
