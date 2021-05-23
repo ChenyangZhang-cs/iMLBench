@@ -54,6 +54,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
+
+
 #include <CL/cl.h>
 
 #include "clutils.h"
@@ -147,10 +151,6 @@ cl_context cl_init(char devicePreference) {
             numDevices[i] = 0;
         }
 
-        printf("Platform %d (%d devices):\n", i, numDevices[i]);
-        printf("\tName: %s\n", platformName);
-        printf("\tVendor: %s\n", platformVendor);
-
         free(platformName);
         free(platformVendor);
 
@@ -166,21 +166,21 @@ cl_context cl_init(char devicePreference) {
         }
 
         // Print some information about each device
-        for (unsigned int j = 0; j < numDevices[i]; j++) {
-            char* deviceName = NULL;
-            char* deviceVendor = NULL;
+        // for (unsigned int j = 0; j < numDevices[i]; j++) {
+        //     char* deviceName = NULL;
+        //     char* deviceVendor = NULL;
 
-            printf("\tDevice %d:\n", j);
+        //     printf("\tDevice %d:\n", j);
 
-            deviceName = cl_getDeviceName(devices[i][j]);
-            deviceVendor = cl_getDeviceVendor(devices[i][j]);
+        //     deviceName = cl_getDeviceName(devices[i][j]);
+        //     deviceVendor = cl_getDeviceVendor(devices[i][j]);
 
-            printf("\t\tName: %s\n", deviceName);
-            printf("\t\tVendor: %s\n", deviceVendor);
+        //     printf("\t\tName: %s\n", deviceName);
+        //     printf("\t\tVendor: %s\n", deviceVendor);
 
-            free(deviceName);
-            free(deviceVendor);
-        }
+        //     free(deviceName);
+        //     free(deviceVendor);
+        // }
     }
 
     // Hard-code in the platform/device to use, or uncomment 'scanf'
@@ -191,7 +191,7 @@ cl_context cl_init(char devicePreference) {
     //scanf("%d %d", &chosen_platform, &chosen_device);
     chosen_platform = 0;
     chosen_device = 0;
-    printf("Using Platform %d, Device %d \n", chosen_platform, chosen_device);
+    // printf("Using Platform %d, Device %d \n", chosen_platform, chosen_device);
 
     // Do a sanity check of platform/device selection
     if (chosen_platform >= numPlatforms ||
@@ -242,8 +242,6 @@ cl_context cl_init_context(int platform, int dev, int quiet) {
     // cl_platform_id platform = NULL;
 
     status = clGetPlatformIDs(0, NULL, &numPlatforms);
-    if (printInfo)
-        printf("Number of platforms detected:%d\n", numPlatforms);
 
     // Print some information about the available platforms
     cl_platform_id* platforms = NULL;
@@ -254,54 +252,6 @@ cl_context cl_init_context(int platform, int dev, int quiet) {
                                             sizeof(cl_platform_id));
         status = clGetPlatformIDs(numPlatforms, platforms, NULL);
 
-        // Traverse the platforms array
-        if (printInfo)
-            printf("Checking For OpenCl Compatible Devices\n");
-        for (unsigned int i = 0; i < numPlatforms; i++) {
-            char pbuf[100];
-            if (printInfo)
-                printf("Platform %d:\t", i);
-            status = clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR,
-                                       sizeof(pbuf), pbuf, NULL);
-            if (printInfo)
-                printf("Vendor: %s\n", pbuf);
-
-            //unsigned int numDevices;
-
-            status = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, NULL, &numDevices);
-            if (cl_errChk(status, "checking for devices", true))
-                exit(1);
-            if (numDevices == 0) {
-                printf("There are no devices for Platform %d\n", i);
-                exit(0);
-            } else {
-                if (printInfo)
-                    printf("\tNo of devices for Platform %d is %u\n", i, numDevices);
-                //! Allocate an array of devices of size "numDevices"
-                devices = (cl_device_id*)malloc(sizeof(cl_device_id) * numDevices);
-                //! Populate Arrray with devices
-                status = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, numDevices,
-                                        devices, NULL);
-                if (cl_errChk(status, "getting device IDs", true)) {
-                    exit(1);
-                }
-            }
-            for (unsigned int j = 0; j < numDevices; j++) {
-                char dbuf[100];
-                char deviceStr[100];
-                if (printInfo)
-                    printf("\tDevice: %d\t", j);
-                status = clGetDeviceInfo(devices[j], CL_DEVICE_VENDOR, sizeof(dbuf),
-                                         deviceStr, NULL);
-                cl_errChk(status, "Getting Device Info\n", true);
-                if (printInfo)
-                    printf("Vendor: %s", deviceStr);
-                status = clGetDeviceInfo(devices[j], CL_DEVICE_NAME, sizeof(dbuf),
-                                         dbuf, NULL);
-                if (printInfo)
-                    printf("\n\t\tName: %s\n", dbuf);
-            }
-        }
     } else {
         // If no platforms are available, we're sunk!
         printf("No OpenCL platforms found\n");
@@ -313,15 +263,7 @@ cl_context cl_init_context(int platform, int dev, int quiet) {
     //if (printInfo) printf("Enter Platform and Device No (Seperated by Space) \n");
     platform_touse = 0;
     device_touse = 0;
-    //if (printInfo) scanf("%d %d", &platform_touse, &device_touse);
-    /*
-	else {
-	  platform_touse = platform;
-	  device_touse = dev;
-	}
-    */
-    if (!quiet)
-        printf("Using Platform %d \t Device No %d \n", platform_touse, device_touse);
+
 
     //! Recheck how many devices does our chosen platform have
     status = clGetDeviceIDs(platforms[platform_touse], CL_DEVICE_TYPE_ALL, 0, NULL, &numDevices);
@@ -349,14 +291,14 @@ cl_context cl_init_context(int platform, int dev, int quiet) {
                              NULL);
     if (cl_errChk(status, "Error in Getting Device Info\n", true))
         exit(1);
-    if (dtype == CL_DEVICE_TYPE_GPU) {
-        if (!quiet)
-            printf("Creating GPU Context\n\n");
-    } else if (dtype == CL_DEVICE_TYPE_CPU) {
-        if (!quiet)
-            printf("Creating CPU Context\n\n");
-    } else
-        perror("This Context Type Not Supported\n");
+    // if (dtype == CL_DEVICE_TYPE_GPU) {
+    //     if (!quiet)
+    //         printf("Creating GPU Context\n\n");
+    // } else if (dtype == CL_DEVICE_TYPE_CPU) {
+    //     if (!quiet)
+    //         printf("Creating CPU Context\n\n");
+    // } else
+    //     perror("This Context Type Not Supported\n");
 
     cl_context_properties cps[3] = {CL_CONTEXT_PLATFORM,
                                     (cl_context_properties)(platforms[platform_touse]), 0};
@@ -645,7 +587,7 @@ void cl_copyBufferToHost(void* dst, cl_mem src, size_t mem_size, cl_bool blockin
 */
 void cl_copyBufferToImage(cl_mem buffer, cl_mem image, int height, int width) {
     size_t origin[3] = {0, 0, 0};
-    size_t region[3] = {width, height, 1};
+    size_t region[3] = {size_t(width), size_t(height), 1};
 
     cl_int status;
     status = clEnqueueCopyBufferToImage(commandQueue, buffer, image, 0,
@@ -750,7 +692,7 @@ cl_program cl_compileProgram(char* kernelPath, char* compileoptions, bool verbos
     char* source = NULL;
     long int size;
 
-    printf("\t%s\n", kernelPath);
+    // printf("\t%s\n", kernelPath);
 
     // Determine the size of the source file
 #ifdef _WIN32
@@ -783,7 +725,7 @@ cl_program cl_compileProgram(char* kernelPath, char* compileoptions, bool verbos
     }
 
     // Read in the source code
-    fread(source, 1, size, fp);
+    size_t tmp_t = fread(source, 1, size, fp);
     source[size] = '\0';
 
     // Create the program object

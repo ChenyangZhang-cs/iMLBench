@@ -196,7 +196,7 @@ int main(int argc, char** argv)
     //printf("input cpu offset\n");
     //cin >> cpu_offset;
 
-        cout << "cpu offset: " << cpu_offset << endl;
+        cout << "CPU offset: " << cpu_offset << endl;
     if(cpu_offset  > 0){
         cpu_run = true;
     }
@@ -206,8 +206,9 @@ int main(int argc, char** argv)
     if(cpu_offset < 100){
         gpu_run = true;
     }
-    else
+    else{
         gpu_run = false;
+    }
     
 
 	if (list_devices)

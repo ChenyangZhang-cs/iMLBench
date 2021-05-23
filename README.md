@@ -7,7 +7,10 @@ Currently, we provide machine learning workloads including Linear Regression (LR
 ## Implementation
 We provide OpenMP and OpenCL implementations for CPU-only, GPU-only, CPU-GPU co-running common machine learning applications.
 
+Note that the co-running programs corresponding to our paper depend on OpenMP and OpenCL 2.0. Since the machine of Code Ocean doesn't support OpenCL, we additionally provide a CUDA CPU-GPU co-running example (KNN), which can be complied and executed in Code Ocean.
+
 ## Paper
+
 Our related paper, ''iMLBench: A Machine Learning Benchmark Suite for CPU-GPU Integrated Architectures'', can be downloaded from TPDS (https://ieeexplore.ieee.org/document/9305972). If you use our benchmark, please cite our paper:
 
 ```

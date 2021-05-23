@@ -10,7 +10,7 @@ static void r_squared(
     rsquared_t dist = {0};
     float y_estimated = 0;
 
-    for (int i = 0; i < params->size; i++) {
+    for (int i = 0; i < int(params->size); i++) {
         dist.actual += pow((dataset[i].y - mean), 2);
         y_estimated = dataset[i].x * response->a1 + response->a0;
         dist.estimated += pow((y_estimated - mean), 2);
@@ -27,7 +27,7 @@ void iterative_regression(
     START_TIME
     sum_t sumset = {0};
 
-    for (int i = 0; i < params->size; i++) {
+    for (int i = 0; i < int(params->size); i++) {
         sumset.sumx += dataset[i].x;
         sumset.sumy += dataset[i].y;
         sumset.sumxsq += pow(dataset[i].x, 2);

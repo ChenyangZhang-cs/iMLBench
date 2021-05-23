@@ -32,7 +32,7 @@ static void write_results(results_t* results, const char* restricts) {
 int main(int argc, char* argv[]) {
     results_t results = {{0}};
     if (argc != 3) {
-        fprintf(stderr, "usage: linear <num of input elements>\b");
+        fprintf(stderr, "usage: linear <num of loops> <cpu offset>\b");
         exit(0);
     }
 
@@ -47,9 +47,10 @@ int main(int argc, char* argv[]) {
         write_results(&results, "a");
     }
     double endtime = gettime();
-    printf("Time: %lf\n", 1000.0 * (endtime - starttime));
+    printf("CPU offset: %d\n", cpu_offset);
+    printf("Time: %lf ms\n", 1000.0 * (endtime - starttime));
     if (argc == 1 || strcmp(argv[1], "-no_print") > 0) {
-        printf("\n> TEMPERATURE REGRESSION (%d)\n\n", TEMP_SIZE);
+        printf("> TEMPERATURE REGRESSION (%d)\n\n", TEMP_SIZE);
         print_results(&results);
     }
 

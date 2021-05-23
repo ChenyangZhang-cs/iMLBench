@@ -2,9 +2,6 @@
 
 for i in {0..10}
 do
-        for j in {1..3}
-        do
-			./build/linear 3 $[i*10]
-        done
-		sleep 60
+	./build/linear 50 $[i*10]
+    sleep 10
 done

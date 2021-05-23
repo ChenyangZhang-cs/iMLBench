@@ -59,7 +59,7 @@ T MLP()
 		auto loss = static_cast<back::Loss*>(self->peers[0]);
 		int n = loss->peers[0]->dimensions[0] * 2000;
 		string speed = epoch == 0? to_string(duration) + "ms" : to_string(int(1000.0f * n / duration)) + "/s";
-		logger << "[" << I.ID << "," << epoch << "," << speed << "] error rate: " << loss->L(I)  << endl;
+		logger << "Error rate: " << loss->L(I)  << endl;
 	});
 	return IterativeOptimizer({&initializer}, {&SGD, generator, monitor}, max_iters);
 }

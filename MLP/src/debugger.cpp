@@ -530,7 +530,7 @@ void debugger_thread(DeviceInstance& I, Tensor& graph)
 	debugger_device_id = I.ID;
 	Tensor* last = nullptr;
 	string command, name;
-	logger << "[debugger] interactive thread started on device " << I.ID << "." << endl;
+	// logger << "[debugger] interactive thread started on device " << I.ID << "." << endl;
 
 	while (true) {
 		try {

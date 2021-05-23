@@ -2,7 +2,7 @@ PROJ=linear
 
 CC=g++
 
-CFLAGS = -std=c99 -Wall -DUNIX -g -DDEBUG 
+CFLAGS = -Wall -DUNIX -g -DDEBUG 
 PROC_TYPE = $(strip $(shell uname -m | grep 64))
  
 LIBS=-lOpenCL

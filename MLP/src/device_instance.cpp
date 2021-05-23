@@ -533,7 +533,7 @@ namespace clnet
             size_t time = MILLIS(0);
             auto &I = DeviceInstance::create(device, -1);
             time = MILLIS(time);
-            logger << "[master] runs on " << name.c_str() << " (" << master_device_id << ") (kernels build: " << millis_string(time) << ")" << endl;
+            // logger << "[master] runs on " << name.c_str() << " (" << master_device_id << ") (kernels build: " << millis_string(time) << ")" << endl;
             global_updater = new thread(&Updater::global_updater_thread, updater, ref(I));
         }
 
@@ -553,7 +553,7 @@ namespace clnet
                 sprintf(start_time, "%04d-%02d-%02d %02d:%02d:%02d", current->tm_year + 1900, current->tm_mon + 1, current->tm_mday, current->tm_hour, current->tm_min, current->tm_sec);
                 auto &I = DeviceInstance::create(device, device_id);
                 time = MILLIS(time);
-                logger << "[" << I.ID << ",@" << start_time << "] " << name.c_str() << " (kernels build: " << millis_string(time) << ")" << endl;
+                // logger << "[" << I.ID << ",@" << start_time << "] " << name.c_str() << " (kernels build: " << millis_string(time) << ")" << endl;
                 if (debugger_device_id == device_id)
                     launch_debugger_thread(I, graph);
                 if (updater != nullptr)
@@ -566,7 +566,7 @@ namespace clnet
                 time = MILLIS(0);
                 graph.launch(&visited, &I);
                 time = MILLIS(time);
-                logger << "[" << I.ID << "] run time: " << time  << " ms." << endl;
+                logger << "Total time: " << time  << " ms." << endl;
 
                 if (updater != nullptr)
                 {

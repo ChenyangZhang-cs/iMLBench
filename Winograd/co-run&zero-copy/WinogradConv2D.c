@@ -3,6 +3,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
 #include <CL/cl.h>
 
 #include "../polybenchUtilFuncts.h"
@@ -48,7 +50,7 @@ FILE *fp;
 char *source_str;
 size_t source_size;
 
-int cpu_offset, loops;
+int cpu_offset;
 
 void WinogradConv2D_2x2_omp(DATA_TYPE *input, DATA_TYPE *output, DATA_TYPE *transformed_filter, size_t *cpu_global_size);
 
@@ -86,25 +88,14 @@ void cl_initialization()
     
     // Get platform and device information
     errcode = clGetPlatformIDs(1, &platform_id, &num_platforms);
-    if(errcode == CL_SUCCESS) printf("number of platforms is %d\n",num_platforms);
-    else printf("Error getting platform IDs\n");
+    if(errcode != CL_SUCCESS) 
+        printf("Error getting platform IDs\n");
 
-    errcode = clGetPlatformInfo(platform_id,CL_PLATFORM_NAME, sizeof(str_temp), str_temp,NULL);
-    if(errcode == CL_SUCCESS) printf("platform name is %s\n",str_temp);
-    else printf("Error getting platform name\n");
-
-    errcode = clGetPlatformInfo(platform_id, CL_PLATFORM_VERSION, sizeof(str_temp), str_temp,NULL);
-    if(errcode == CL_SUCCESS) printf("platform version is %s\n",str_temp);
-    else printf("Error getting platform version\n");
 
     errcode = clGetDeviceIDs( platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id, &num_devices);
-    if(errcode == CL_SUCCESS) printf("number of devices is %d\n", num_devices);
-    else printf("Error getting device IDs\n");
+    if(errcode != CL_SUCCESS) 
+        printf("Error getting device IDs\n");
 
-    errcode = clGetDeviceInfo(device_id,CL_DEVICE_NAME, sizeof(str_temp), str_temp,NULL);
-    if(errcode == CL_SUCCESS) printf("device name is %s\n",str_temp);
-    else printf("Error getting device name\n");
-    
     // Create an OpenCL context
     clGPUContext = clCreateContext( NULL, 1, &device_id, NULL, NULL, &errcode);
     if(errcode != CL_SUCCESS) printf("Error in creating context\n");
@@ -188,11 +179,7 @@ void cl_launch_kernel()  // 若凡：有一点改动
     }
     if (cpu_run)
     {
-        double t_start1 = rtclock();
-        printf("CPU size: %d\n", cpu_global_size[0]);
         WinogradConv2D_2x2_omp(a_mem_obj, b_mem_obj, c_mem_obj, cpu_global_size);
-        double t_end1 = rtclock();
-        fprintf(stdout, "CPU time: %lf ms\n", 1000.0 * (t_end1 - t_start1));
     }
     if (gpu_run)
     {
@@ -201,7 +188,8 @@ void cl_launch_kernel()  // 若凡：有一点改动
             printf("ERROR in corun\n");
     }
     t_end = rtclock();
-    fprintf(stdout, "Total time: %lf ms\n", 1000.0 * (t_end - t_start));
+
+    // fprintf(stdout, "Total time: %lf ms\n", 1000.0 * (t_end - t_start));
 }
 
 void cl_clean_up()
@@ -375,7 +363,7 @@ void compareResults(DATA_TYPE* B, DATA_TYPE* B_outputFromGpu)  // 若凡：有�
     }
     
     // Print results
-    printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %d\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
+    printf("Error Threshold of %4.2f Percent: %d\n\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
     
 }
 
@@ -475,13 +463,13 @@ void WinogradConv2D_2x2(DATA_TYPE *input, DATA_TYPE *output, DATA_TYPE *transfor
 
 int main(int argc, char *argv[]) 
 {
-    if (argc != 3) 
+    if (argc != 2) 
     {
-        printf("usage: ./WinogradConv2D <loops> <cpu offset>\n");
+        printf("usage: ./WinogradConv2D <cpu offset>\n");
         exit(0);
     }
-    cpu_offset = atoi(argv[2]);
-    loops = atoi(argv[1]);
+    cpu_offset = atoi(argv[1]);
+    printf("CPU offset: %d\n", cpu_offset);
 
     double t_start, t_end;
     int i;
@@ -497,14 +485,15 @@ int main(int argc, char *argv[])
     if (a_mem_obj == NULL || b_mem_obj == NULL || c_mem_obj == NULL)
         printf("clSVMAlloc failed\n");
     WinogradConv2D_2x2_filter_transformation(c_mem_obj);  // 这里
-    init(a_mem_obj);
-
-    cl_launch_kernel();
     
+    init(a_mem_obj);
     t_start = rtclock();
-    WinogradConv2D_2x2(a_mem_obj, B, c_mem_obj);  // 这里
-    t_end = rtclock(); 
-    fprintf(stdout, "CPU Runtime: %0.6lfs\n", t_end - t_start);   
+    for (int i = 0; i < 3; i++)
+        cl_launch_kernel();
+    t_end = rtclock();
+    fprintf(stdout, "Total time: %lf ms\n", 1000.0 * (t_end - t_start));
+
+    WinogradConv2D_2x2(a_mem_obj, B, c_mem_obj);  
     compareResults(B, b_mem_obj);
 
     free(B);

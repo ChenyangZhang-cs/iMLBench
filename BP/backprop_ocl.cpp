@@ -6,6 +6,9 @@
 #include <sys/time.h>
 #include "backprop.h"
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
+
 #ifdef NV  //NVIDIA
 #include <oclUtils.h>
 #else
@@ -28,8 +31,6 @@ extern double gettime();
 #define THREADS 256
 #define WIDTH 16
 #define HEIGHT 16
-#define ETA 0.3f
-#define MOMENTUM 0.3f
 
 #define WM(i, j) weight_matrix[(j) + (i)*WIDTH]
 
@@ -128,7 +129,7 @@ static int initialize(int use_gpu) {
     // get the list of GPUs
     result = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &size);
     num_devices = (int)(size / sizeof(cl_device_id));
-    printf("num_devices = %d\n", num_devices);
+    // printf("num_devices = %d\n", num_devices);
 
     if (result != CL_SUCCESS || num_devices < 1) {
         printf("ERROR: clGetContextInfo() failed\n");
@@ -201,15 +202,15 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
     }
 
     // read the kernel core source
-    char* kernel_bp1 = "bpnn_layerforward_ocl";
-    char* kernel_bp2 = "bpnn_adjust_weights_ocl";
-    char* tempchar = "./backprop_kernel.cl";
+    char kernel_bp1[] = "bpnn_layerforward_ocl";
+    char kernel_bp2[] = "bpnn_adjust_weights_ocl";
+    char tempchar[] = "./backprop_kernel.cl";
     FILE* fp = fopen(tempchar, "rb");
     if (!fp) {
         printf("ERROR: unable to open '%s'\n", tempchar);
         return -1;
     }
-    fread(source + strlen(source), sourcesize, 1, fp);
+    size_t tmp_s = fread(source + strlen(source), sourcesize, 1, fp);
     fclose(fp);
 
     int use_gpu = 1;
@@ -245,7 +246,7 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
     float* input_weights_prev_one_dim;
     //float * partial_sum;
     float sum;
-    float num_blocks = in / BLOCK_SIZE;
+    int num_blocks = in / BLOCK_SIZE;
 
     input_weights_one_dim = (float*)clSVMAlloc(context, CL_MEM_READ_WRITE, (in + 1) * (hid + 1) * sizeof(float), 0);
     if (input_weights_one_dim == NULL) {
@@ -261,7 +262,7 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
     //partial_sum = (float *) malloc(num_blocks * WIDTH * sizeof(float));
 
     // set global and local workitems
-    size_t global_work[3] = {BLOCK_SIZE, BLOCK_SIZE * num_blocks, 1};
+    size_t global_work[3] = {BLOCK_SIZE, size_t(BLOCK_SIZE * num_blocks), 1};
     size_t local_work[3] = {BLOCK_SIZE, BLOCK_SIZE, 1};
 
     // this preprocessing stage is temporarily added to correct the bug of wrong memcopy using two-dimensional net->inputweights
@@ -312,9 +313,9 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
     bool gpu_run = true, cpu_run = false;
     int work_dim = 1;
     int cpu_num_blocks = cpu_offset * num_blocks / 100;
-    size_t cpu_global_size[3] = {BLOCK_SIZE, BLOCK_SIZE * cpu_num_blocks, 1};
-    size_t gpu_global_size[3] = {BLOCK_SIZE, BLOCK_SIZE * (num_blocks - cpu_num_blocks), 1};
-    size_t global_offset[2] = {0, BLOCK_SIZE * cpu_num_blocks};
+    size_t cpu_global_size[3] = {BLOCK_SIZE, size_t(BLOCK_SIZE * cpu_num_blocks), 1};
+    size_t gpu_global_size[3] = {BLOCK_SIZE, size_t(BLOCK_SIZE * (num_blocks - cpu_num_blocks)), 1};
+    size_t global_offset[2] = {0, size_t(BLOCK_SIZE * cpu_num_blocks)};
 
     if (cpu_offset > 0) {
         cpu_run = true;
@@ -324,14 +325,14 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
     if (gpu_global_size[1] <= 0) {
         gpu_run = false;
     }
-    printf("CPU size: %d, GPU size: %d\n", cpu_global_size[1], gpu_global_size[1]);
+    // printf("CPU size: %ld, GPU size: %ld\n", cpu_global_size[1], gpu_global_size[1]);
 
     cl_event kernelEvent1;
 
     double tstart = gettime();
 
     if (gpu_run) {
-        printf("GPU running\n");
+        // printf("GPU running\n");
         clSetKernelArgSVMPointer(kernel1, 0, (void*)input_ocl);
         clSetKernelArgSVMPointer(kernel1, 1, (void*)output_hidden_ocl);
         clSetKernelArgSVMPointer(kernel1, 2, (void*)input_hidden_ocl);
@@ -341,12 +342,11 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
         clSetKernelArg(kernel1, 6, sizeof(cl_int), (void*)&in);
         clSetKernelArg(kernel1, 7, sizeof(cl_int), (void*)&hid);
         err = clEnqueueNDRangeKernel(cmd_queue, kernel1, 2, global_offset, gpu_global_size, local_work, 0, 0, &kernelEvent1);
-        tstart = gettime();
         if (err != CL_SUCCESS)
             printf("ERROR1 in corun\n");
     }
     if (cpu_run) {
-        printf("CPU running\n");
+        // printf("CPU running\n");
         bpnn_layerforward_omp((float*)input_ocl, (float*)output_hidden_ocl, (float*)input_hidden_ocl, (float*)hidden_partial_sum, NULL, NULL, in, hid, cpu_num_blocks);
     }
     if (gpu_run) {
@@ -354,12 +354,7 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
         if (err != CL_SUCCESS)
             printf("ERROR in corun\n");
     }
-    double tend = gettime();
-    printf("Time1: %lf\n", 1000.0 * (tend - tstart));
-    /*
-	err = clEnqueueReadBuffer(cmd_queue, hidden_partial_sum, 1, 0, num_blocks * WIDTH * sizeof(float), partial_sum, 0, 0, 0);
-	if(err != CL_SUCCESS) { printf("ERROR: 1  clEnqueueReadBuffer: partial sum\n"); return -1; }	
-  */
+
     for (int j = 1; j <= hid; j++) {
         sum = 0.0;
         for (int k = 0; k < num_blocks; k++) {
@@ -375,7 +370,6 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
     bpnn_adjust_weights(net->output_delta, out, net->hidden_units, hid, net->hidden_weights, net->hidden_prev_weights);
 
     memcpy(hidden_delta_ocl, net->hidden_delta, (hid + 1) * sizeof(float));
-    double t1 = gettime();
     if (gpu_run) {
         clSetKernelArgSVMPointer(kernel2, 0, (void*)hidden_delta_ocl);
         clSetKernelArg(kernel2, 1, sizeof(cl_int), (void*)&hid);
@@ -398,8 +392,6 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
         if (err != CL_SUCCESS)
             printf("ERROR in corun\n");
     }
-    double t2 = gettime();
-    printf("Time2: %lf\n", 1000.0 * (t2 - t1));
 
     memcpy(net->input_units, input_ocl, (in + 1) * sizeof(float));
 
@@ -409,5 +401,7 @@ int bpnn_train_kernel(BPNN* net, float* eo, float* eh) {
     clSVMFree(context, hidden_partial_sum);
     clSVMFree(context, hidden_delta_ocl);
     clSVMFree(context, input_prev_weights_ocl);
+    double tend = gettime();
+    printf("Total time: %lf ms\n\n", 1000.0 * (tend - tstart));
 
 }

@@ -55,34 +55,23 @@ int main(int argc, char *argv[])
 
     int numRecords = loadData(filename, records, locations);
 
-    //for(i=0;i<numRecords;i++)
-    //    printf("%s, %f, %f\n",(records[i].recString),locations[i].lat,locations[i].lng);
-
-    if (!quiet)
-    {
-        printf("Number of records: %d\n", numRecords);
-        printf("Finding the %d closest neighbors.\n", resultsCount);
-    }
-
     if (resultsCount > numRecords)
         resultsCount = numRecords;
 
     context = cl_init_context(platform, device, quiet);
 
-    double starttime = gettime();
-    for(int i = 0; i < 5; i++){
+    for(int i = 0; i < 1; i++){
         recordDistances = OpenClFindNearestNeighbors(context, numRecords, locations, lat, lng, timing);
         // find the resultsCount least distances
         findLowest(records, recordDistances, numRecords, resultsCount);
     }
-    double endtime = gettime();
-    printf("Time: %lf\n", 1000.0*(endtime - starttime));
     // print out results
     if (!quiet)
         for (i = 0; i < resultsCount; i++)
         {
             printf("%s --> Distance=%f\n", records[i].recString, records[i].distance);
         }
+    printf("\n");
     clSVMFree(context, recordDistances);
     return 0;
 }
@@ -98,16 +87,12 @@ float *OpenClFindNearestNeighbors(
     cl_kernel NN_kernel;
     cl_int status;
     cl_program cl_NN_program;
-    cl_NN_program = cl_compileProgram(
-        (char *)"nearestNeighbor_kernel.cl", NULL);
+    cl_NN_program = cl_compileProgram((char *)"nearestNeighbor_kernel.cl", NULL);
 
-    NN_kernel = clCreateKernel(
-        cl_NN_program, "NearestNeighbor", &status);
+    NN_kernel = clCreateKernel(cl_NN_program, "NearestNeighbor", &status);
     status = cl_errChk(status, (char *)"Error Creating Nearest Neighbor kernel", true);
     if (status)
         exit(1);
-
-
 
     cl_int error = 0;
     void *d_locations = clSVMAlloc(context, CL_MEM_READ_ONLY, sizeof(LatLong) * numRecords, 0);
@@ -123,8 +108,7 @@ float *OpenClFindNearestNeighbors(
     globalWorkSize[0] = numRecords;
     if (numRecords % 64)
         globalWorkSize[0] += 64 - (numRecords % 64);
-    //printf("Global Work Size: %zu\n",globalWorkSize[0]);
-    // Co_run
+
     bool gpu_run = true, cpu_run = false;
     int work_dim = 1;
     size_t cpu_global_size[3] = {0, 1, 1};
@@ -146,55 +130,42 @@ float *OpenClFindNearestNeighbors(
         gpu_run = false;
     }
     global_offset[0] = cpu_global_size[0];
-//    printf("CPU size: %d, GPU size: %d\n", cpu_global_size[0], gpu_global_size[0]);
+    //    printf("CPU size: %d, GPU size: %d\n", cpu_global_size[0], gpu_global_size[0]);
 
     float * distance_cpu = (float *)malloc(sizeof(float) * cpu_global_size[0]);
 
     double tstart = gettime();
     for(int i = 0; i < 10000; i++){
 
+        if (gpu_run){
+            cl_int argchk;
+            double t1 = gettime();
+            argchk = clSetKernelArgSVMPointer(NN_kernel, 0, (void *)d_locations);
+            argchk |= clSetKernelArgSVMPointer(NN_kernel, 1, (void *)d_distances);
+            argchk |= clSetKernelArg(NN_kernel, 2, sizeof(int), (void *)&numRecords);
+            argchk |= clSetKernelArg(NN_kernel, 3, sizeof(float), (void *)&lat);
+            argchk |= clSetKernelArg(NN_kernel, 4, sizeof(float), (void *)&lng);
+            cl_errChk(argchk, "ERROR in Setting Nearest Neighbor kernel args", true);
+            error = clEnqueueNDRangeKernel(command_queue, NN_kernel, 1, global_offset, gpu_global_size, NULL, 0, NULL, &kernelEvent);
+            double tstart = gettime();
 
-    if (gpu_run)
-    {
-        cl_int argchk;
-        double t1 = gettime();
-        argchk = clSetKernelArgSVMPointer(NN_kernel, 0, (void *)d_locations);
-        argchk |= clSetKernelArgSVMPointer(NN_kernel, 1, (void *)d_distances);
-        argchk |= clSetKernelArg(NN_kernel, 2, sizeof(int), (void *)&numRecords);
-        argchk |= clSetKernelArg(NN_kernel, 3, sizeof(float), (void *)&lat);
-        argchk |= clSetKernelArg(NN_kernel, 4, sizeof(float), (void *)&lng);
-        cl_errChk(argchk, "ERROR in Setting Nearest Neighbor kernel args", true);
-        error = clEnqueueNDRangeKernel(command_queue, NN_kernel, 1, global_offset, gpu_global_size, NULL, 0, NULL, &kernelEvent);
-        double tstart = gettime();
-
-        cl_errChk(error, "ERROR in Executing Kernel NearestNeighbor", true);
-
-     //   clWaitForEvents(1,&kernelEvent);
-        double t2 = gettime();
-
-       // printf("GPU time: %lf ms\n", 1000*(t2-t1));
-
+            cl_errChk(error, "ERROR in Executing Kernel NearestNeighbor", true);
+            double t2 = gettime();
+        }
+        if (cpu_run){
+            double t1 = gettime();
+            NearestNeighborOMP((LatLong *)d_locations, distance_cpu, cpu_global_size[0], lat, lng);
+            double t2 = gettime();
+            //printf("GPU time: %lf ms\n", 1000*(t2-t1));
+        }
+        
+        if(gpu_run){
+            cl_int err = clWaitForEvents(1,&kernelEvent);
+            if(err != CL_SUCCESS)	printf("ERROR in corun\n");
+        } 
     }
-    if (cpu_run)
-    {
-      //printf("numRecords:%d\n",numRecords);
-      //printf("lat:%lf\n",lat);
-      //printf("lng:%lf\n",lng);
-              double t1 = gettime();
-
-        NearestNeighborOMP((LatLong *)d_locations, distance_cpu, cpu_global_size[0], lat, lng);
-        double t2 = gettime();
-        //printf("GPU time: %lf ms\n", 1000*(t2-t1));
-    }
-    
-    if(gpu_run)
-    {
-		cl_int err = clWaitForEvents(1,&kernelEvent);
-		if(err != CL_SUCCESS)	printf("ERROR in corun\n");
-	} 
-    
-  }
     double tend = gettime();
+    printf("CPU offset: %d\n", cpu_offset);
     printf("Training Time: %lf\n", 1000.0*(tend - tstart));
 
     memcpy(d_distances, distance_cpu, sizeof(float) * cpu_global_size[0]);
@@ -282,7 +253,7 @@ int loadData(char *filename, std::vector<Record> &records, std::vector<LatLong> 
         {
             Record record;
             LatLong latLong;
-            fgets(record.recString, 49, fp);
+            char *tmp_cp = fgets(record.recString, 49, fp);
             fgetc(fp); // newline
             if (feof(fp))
                 break;

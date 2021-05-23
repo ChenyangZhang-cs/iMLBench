@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #include <CL/cl.h>
 
@@ -48,8 +49,9 @@ cl_mem c_mem_obj;
 FILE* fp;
 char* source_str;
 size_t source_size;
+double total_time = 0;
 
-int cpu_offset, loops;
+int cpu_offset;
 
 void WinogradConv2D_2x2_omp(DATA_TYPE* input, DATA_TYPE* output, DATA_TYPE* transformed_filter, size_t* cpu_global_size);
 
@@ -78,34 +80,14 @@ void init(DATA_TYPE* A) {
 void cl_initialization() {
     // Get platform and device information
     errcode = clGetPlatformIDs(1, &platform_id, &num_platforms);
-    if (errcode == CL_SUCCESS)
-        printf("number of platforms is %d\n", num_platforms);
-    else
+    if (errcode != CL_SUCCESS)
         printf("Error getting platform IDs\n");
 
-    errcode = clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, sizeof(str_temp), str_temp, NULL);
-    if (errcode == CL_SUCCESS)
-        printf("platform name is %s\n", str_temp);
-    else
-        printf("Error getting platform name\n");
-
-    errcode = clGetPlatformInfo(platform_id, CL_PLATFORM_VERSION, sizeof(str_temp), str_temp, NULL);
-    if (errcode == CL_SUCCESS)
-        printf("platform version is %s\n", str_temp);
-    else
-        printf("Error getting platform version\n");
 
     errcode = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id, &num_devices);
-    if (errcode == CL_SUCCESS)
-        printf("number of devices is %d\n", num_devices);
-    else
+    if (errcode != CL_SUCCESS)
         printf("Error getting device IDs\n");
 
-    errcode = clGetDeviceInfo(device_id, CL_DEVICE_NAME, sizeof(str_temp), str_temp, NULL);
-    if (errcode == CL_SUCCESS)
-        printf("device name is %s\n", str_temp);
-    else
-        printf("Error getting device name\n");
 
     // Create an OpenCL context
     clGPUContext = clCreateContext(NULL, 1, &device_id, NULL, NULL, &errcode);
@@ -127,7 +109,6 @@ void cl_mem_init(DATA_TYPE* A, DATA_TYPE* C) {
     if (errcode != CL_SUCCESS)
         printf("Error in creating buffers\n");
 
-    double t_start = rtclock();
     errcode = clEnqueueWriteBuffer(clCommandQue, a_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * N * N, A, 0, NULL, NULL);
     if (errcode != CL_SUCCESS)
         printf("Error in writing buffers\n");
@@ -136,8 +117,6 @@ void cl_mem_init(DATA_TYPE* A, DATA_TYPE* C) {
     errcode = clEnqueueWriteBuffer(clCommandQue, c_mem_obj, CL_TRUE, 0, sizeof(DATA_TYPE) * 4 * 4, C, 0, NULL, NULL);
     if (errcode != CL_SUCCESS)
         printf("Error in writing buffers\n");
-    double t_end = rtclock();
-    printf("CPU to GPU Write Time: %lf ms\n", 1000.0 * (t_end - t_start));
 }
 
 void cl_load_prog() {
@@ -212,7 +191,6 @@ void cl_launch_kernel() {
             printf("Error in launching kernel\n");
     }
     if (cpu_run) {
-        double t_start1 = rtclock();
         b_mem_cpu = (DATA_TYPE*)malloc(sizeof(DATA_TYPE) * (N - 2) * (N - 2));
         c_mem_cpu = (DATA_TYPE*)malloc(sizeof(DATA_TYPE) * 4 * 4);
         a_mem_cpu = (DATA_TYPE*)malloc(N * N * sizeof(DATA_TYPE));
@@ -222,10 +200,8 @@ void cl_launch_kernel() {
                                        sizeof(DATA_TYPE) * 4 * 4, c_mem_cpu, 0, NULL, NULL);
         if (errcode != CL_SUCCESS)
             printf("Error in read buffer\n");
-        double t_end2 = rtclock();
-        fprintf(stdout, "before conrun GPU to CPU read time: %lf ms\n", 1000.0 * (t_end2 - t_start1));
 
-        printf("CPU size: %d\n", cpu_global_size[0]);
+        // printf("CPU size: %d\n", cpu_global_size[0]);
         WinogradConv2D_2x2_omp(a_mem_cpu, b_mem_cpu, c_mem_cpu, cpu_global_size);
         // errcode = clEnqueueWriteBuffer(clCommandQue, b_mem_obj, CL_TRUE, global_offset[0],
         //       sizeof(DATA_TYPE) * (N-2) * (N-2), b_mem_cpu, 0, NULL, NULL);
@@ -240,8 +216,6 @@ void cl_launch_kernel() {
         if (errcode != CL_SUCCESS)
             printf("Error in write buffer\n");
 
-        double t_end1 = rtclock();
-        fprintf(stdout, "CPU time: %lf ms\n", 1000.0 * (t_end1 - t_start1));
     }
     if (gpu_run) {
         cl_int err = clWaitForEvents(1, &kernelEvent1);
@@ -256,8 +230,9 @@ void cl_launch_kernel() {
     }
 
     t_end = rtclock();
+    total_time += 1000.0 * (t_end - t_start);
 
-    fprintf(stdout, "Total time: %lf ms\n", 1000.0 * (t_end - t_start));
+    // fprintf(stdout, "Total time: %lf ms\n", 1000.0 * (t_end - t_start));
 }
 
 void cl_clean_up() {
@@ -430,7 +405,7 @@ void compareResults(DATA_TYPE* B, DATA_TYPE* B_outputFromGpu) {
     }
 
     // Print results
-    printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %d\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
+    printf("Error Threshold of %4.2f Percent: %d\n\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
 }
 
 void WinogradConv2D_2x2(DATA_TYPE* input, DATA_TYPE* output, DATA_TYPE* transformed_filter) {
@@ -524,12 +499,11 @@ void WinogradConv2D_2x2(DATA_TYPE* input, DATA_TYPE* output, DATA_TYPE* transfor
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        printf("usage: ./WinogradConv2D <loops> <cpu offset>\n");
+    if (argc != 2) {
+        printf("usage: ./WinogradConv2D <cpu offset>\n");
         exit(0);
     }
-    cpu_offset = atoi(argv[2]);
-    loops = atoi(argv[1]);
+    cpu_offset = atoi(argv[1]);
 
     double t_start, t_end;
     int i;
@@ -549,24 +523,24 @@ int main(int argc, char* argv[]) {
 
     read_cl_file();
     cl_initialization();
+    t_start = rtclock();
     cl_mem_init(A, C);
     cl_load_prog();
-
-    for (int i = 0; i < 10; i++) {
+    
+    for (int i = 0; i < 3; i++) {
         cl_launch_kernel();
     }
 
-    t_start = rtclock();
     errcode = clEnqueueReadBuffer(clCommandQue, b_mem_obj, CL_TRUE, 0, (N - 2) * (N - 2) * sizeof(DATA_TYPE), B_outputFromGpu, 0, NULL, NULL);
     if (errcode != CL_SUCCESS)
         printf("Error in reading GPU mem\n");
+    cl_clean_up();
     t_end = rtclock();
-    printf("GPU to CPU Read Time: %lf ms\n", 1000.0 * (t_end - t_start));
+    // printf("Total kernel time: %lf\n", total_time);
+    printf("CPU offset: %d\n", cpu_offset);
+    printf("Total time: %lf ms\n", 1000.0 * (t_end - t_start));
 
-    t_start = rtclock();
     WinogradConv2D_2x2(A, B, C);
-    t_end = rtclock();
-    fprintf(stdout, "CPU Runtime: %0.6lfs\n", t_end - t_start);
     compareResults(B, B_outputFromGpu);
 
     free(A);
@@ -574,6 +548,6 @@ int main(int argc, char* argv[]) {
     free(B_outputFromGpu);
     free(C);
 
-    cl_clean_up();
+    
     return 0;
 }

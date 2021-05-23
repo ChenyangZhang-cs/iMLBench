@@ -15,6 +15,7 @@
 #include <sys/time.h>
 #include <time.h>
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #include <CL/cl.h>
 
 #include "./polybenchUtilFuncts.h"
@@ -60,6 +61,7 @@ DATA_TYPE* c_mem_obj;
 FILE* fp;
 char* source_str;
 size_t source_size;
+double total_time = 0;
 
 void Convolution2D_omp(DATA_TYPE* A, DATA_TYPE* B, int ni, int nj, size_t* cpu_global_size) {
     // int j = get_global_id(0);
@@ -96,7 +98,7 @@ void compareResults(DATA_TYPE* B, DATA_TYPE* B_outputFromGpu) {
         }
     }
     // Print results
-    printf("Non-Matching CPU-GPU Outputs Beyond Error Threshold of %4.2f Percent: %d\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
+    printf("Error Threshold of %4.2f Percent: %d\n\n", PERCENT_DIFF_ERROR_THRESHOLD, fail);
 }
 
 void read_cl_file() {
@@ -124,34 +126,36 @@ void init(DATA_TYPE* A) {
 void cl_initialization() {
     // Get platform and device information
     errcode = clGetPlatformIDs(1, &platform_id, &num_platforms);
-    if (errcode == CL_SUCCESS)
-        printf("number of platforms is %d\n", num_platforms);
-    else
+    // if (errcode == CL_SUCCESS)
+    //     printf("number of platforms is %d\n", num_platforms);
+    // else
+    //     printf("Error getting platform IDs\n");
+    if (errcode != CL_SUCCESS)
         printf("Error getting platform IDs\n");
 
     errcode = clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, sizeof(str_temp), str_temp, NULL);
-    if (errcode == CL_SUCCESS)
-        printf("platform name is %s\n", str_temp);
-    else
-        printf("Error getting platform name\n");
+    // if (errcode == CL_SUCCESS)
+    //     printf("platform name is %s\n", str_temp);
+    // else
+    //     printf("Error getting platform name\n");
 
-    errcode = clGetPlatformInfo(platform_id, CL_PLATFORM_VERSION, sizeof(str_temp), str_temp, NULL);
-    if (errcode == CL_SUCCESS)
-        printf("platform version is %s\n", str_temp);
-    else
-        printf("Error getting platform version\n");
+    // errcode = clGetPlatformInfo(platform_id, CL_PLATFORM_VERSION, sizeof(str_temp), str_temp, NULL);
+    // if (errcode == CL_SUCCESS)
+    //     printf("platform version is %s\n", str_temp);
+    // else
+    //     printf("Error getting platform version\n");
 
     errcode = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id, &num_devices);
-    if (errcode == CL_SUCCESS)
-        printf("number of devices is %d\n", num_devices);
-    else
-        printf("Error getting device IDs\n");
+    // if (errcode == CL_SUCCESS)
+    //     printf("number of devices is %d\n", num_devices);
+    // else
+    //     printf("Error getting device IDs\n");
 
-    errcode = clGetDeviceInfo(device_id, CL_DEVICE_NAME, sizeof(str_temp), str_temp, NULL);
-    if (errcode == CL_SUCCESS)
-        printf("device name is %s\n", str_temp);
-    else
-        printf("Error getting device name\n");
+    // errcode = clGetDeviceInfo(device_id, CL_DEVICE_NAME, sizeof(str_temp), str_temp, NULL);
+    // if (errcode == CL_SUCCESS)
+    //     printf("device name is %s\n", str_temp);
+    // else
+    //     printf("Error getting device name\n");
 
     // Create an OpenCL context
     clGPUContext = clCreateContext(NULL, 1, &device_id, NULL, NULL, &errcode);
@@ -213,7 +217,7 @@ void cl_launch_kernel() {
     }
     b_mem_obj = (DATA_TYPE*)clSVMAlloc(clGPUContext, CL_MEM_READ_WRITE, sizeof(DATA_TYPE) * NI * NJ, 0);
 
-    for (int j = 0; j < 3; j++) {
+    for (int j = 0; j < 5; j++) {
         t_start = rtclock();
 
         if (gpu_run) {
@@ -232,10 +236,10 @@ void cl_launch_kernel() {
                 printf("Error in launching kernel\n");
         }
         if (cpu_run) {
-            double t_start1 = rtclock();
+            // double t_start1 = rtclock();
             Convolution2D_omp(a_mem_obj, b_mem_obj, ni, nj, cpu_global_size);
-            double t_end1 = rtclock();
-            fprintf(stdout, "CPU time: %lfms\n", 1000.0 * (t_end1 - t_start1));
+            // double t_end1 = rtclock();
+            // fprintf(stdout, "CPU time: %lfms\n", 1000.0 * (t_end1 - t_start1));
         }
         if (gpu_run) {
             clFinish(clCommandQue);
@@ -243,7 +247,8 @@ void cl_launch_kernel() {
 
         t_end = rtclock();
 
-        fprintf(stdout, "time: %lf ms\n", 1000.0 * (t_end - t_start));
+        // fprintf(stdout, "time: %lf ms\n", 1000.0 * (t_end - t_start));
+        total_time += 1000.0 * (t_end - t_start);
     }
 }
 
@@ -288,6 +293,7 @@ int main(int argc, char* argv[]) {
         exit(0);
     }
     cpu_offset = atoi(argv[1]);
+    printf("CPU offset: %d\n", cpu_offset);
 
     double t_start, t_end;
     int i;
@@ -308,13 +314,14 @@ int main(int argc, char* argv[]) {
     a_mem_obj = A;
     cl_load_prog();
     cl_launch_kernel();
+    printf("Total time: %lf ms\n", total_time);
     B_outputFromGpu = b_mem_obj;
     if (errcode != CL_SUCCESS)
         printf("Error in reading GPU mem\n");
-    t_start = rtclock();
+    // t_start = rtclock();
     conv2D(A, B);
-    t_end = rtclock();
-    fprintf(stdout, "CPU Runtime: %0.6lfs\n", t_end - t_start);
+    // t_end = rtclock();
+    // fprintf(stdout, "CPU Runtime: %0.6lfs\n", t_end - t_start);
     compareResults(B, B_outputFromGpu);
 
     clSVMFree(clGPUContext, A);

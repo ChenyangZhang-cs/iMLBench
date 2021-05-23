@@ -311,22 +311,11 @@ namespace clnet
     void type::FullyConnectedLayer::run(DeviceInstance &I)
     {
         //MLP kernel 1
-        double t1 = gettime();
         auto &kernel = prepare_for_running_kernel(this, I);
         int N = inputs[0]->volume / inputs[0]->dimensions.back();
         int HIDDEN = inputs[1]->dimensions.back();
         int dim_in = inputs[1]->dimensions.front();
-        //static int count = 0;
-        //count++;
-        //printf("count: %d\n", count);
-        /*if(count == 1){
-          t1 = gettime();
-        }
-        if(count == 100){
-          t2 = gettime();
-          printf("100 kernel1 time: %lf\n", 1000*(t2-t1));
-          exit(0);
-        }*/
+ 
         int cpu_offset = 100;
         cl::Event eventList;
         cl::NDRange global(N * HIDDEN);
@@ -372,10 +361,7 @@ namespace clnet
             }
         }
         if (gpu_run)
-        {
-            cl_int err = clWaitForEvents(1, &(eventList()));
-
-        double t2 = gettime();
+            clWaitForEvents(1, &(eventList()));
     }
     string type::BatchNormalizedLayer::generate_source_code(DeviceInstance &I)
     {
@@ -505,16 +491,9 @@ namespace clnet
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
-         //   if (err != CL_SUCCESS)//
-         //       printf("Wait error in kernel 5: %d\n", err);
-           // else
-            //printf("kernel 5 finish\n");
+            clWaitForEvents(1, &(eventList()));
+
         }
-        //	I.precondition_events.clear();
-        //	I.precondition_events.push_back(I.events[data]);
-        //	I.events[mask].wait(); //should wait for last download to be finished
-        //	refresh_random_numbers(I, I.precondition_events);
     }
 
     void type::DropOut::refresh_random_numbers(DeviceInstance &I, const vector<cl::Event> &preconditions)
@@ -755,7 +734,7 @@ namespace clnet
 
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
              //   if (err != CL_SUCCESS)
    //                 printf("Wait error in kernel 7: %d\n", err);
                 //printf("kernel 7 finish\n");
@@ -771,7 +750,7 @@ namespace clnet
         {
             //MLP kernel 8
             //printf("kernel 8\n");
-            double t1 = gettime();
+            
             if (temp_global_buffer[this] == 0)
             {
                 const auto &context = I.queue.getInfo<CL_QUEUE_CONTEXT>();
@@ -817,13 +796,10 @@ namespace clnet
             }
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
-             //   if (err != CL_SUCCESS)
-   //                 printf("Wait error in kernel 8: %d\n", err);
-                //printf("kernel 8 finish\n");
+                clWaitForEvents(1, &(eventList()));
             }
 
-            double t2 = gettime();
+            
 
             auto &kernel1 = I.kernels[this][1];
 
@@ -831,7 +807,7 @@ namespace clnet
             {
                 cl::Event eventList;
                 //printf("kernel 9\n");
-                double t1 = gettime();
+                
                 //int cpu_offset = 10;
                 clnet::int64 global_size[2] = {dim_out, dim_in};
                 clnet::int64 cpu_size[2] = {0, dim_in};
@@ -865,18 +841,18 @@ namespace clnet
                 }
                 if (gpu_run)
                 {
-                    cl_int err = clWaitForEvents(1, &(eventList()));
+                    clWaitForEvents(1, &(eventList()));
                  //   if (err != CL_SUCCESS)
        //                 printf("Wait error in kernel 9: %d\n", err);
                    // else
                     //printf("kernel 9 finish\n");
                 }
-                double t2 = gettime();
+                
             }
 
             if (in_gradient != nullptr)
             {
-                double t1 = gettime();
+                
                 auto &kernel2 = prepare_for_running_kernel(this, I, 2);
                 //printf("kernel 10\n");
                 // MLP kernel 10
@@ -921,7 +897,7 @@ printf("count10: %d\n", count10);*/
                 }
                 if (gpu_run)
                 {
-                    cl_int err = clWaitForEvents(1, &(eventList()));
+                    clWaitForEvents(1, &(eventList()));
                  //   if (err != CL_SUCCESS)
        //                 printf("Wait error in kernel 10: %d\n", err);
                 //    else
@@ -929,7 +905,7 @@ printf("count10: %d\n", count10);*/
                         //printf("kernel 10 finish\n");
                     
                 }
-                double t2 = gettime();
+                
             }
         }
     }
@@ -1078,7 +1054,7 @@ printf("count10: %d\n", count10);*/
             auto &kernel = I.kernels[this].front();
 
             set<Tensor *> gradients;
-            double t1 = gettime();
+            
             for (int i = 0, N = peers.size(); i < N; i++)
             {
 
@@ -1124,7 +1100,7 @@ printf("count12: %d\n", count12);*/
                 }
                 if (gpu_run)
                 {
-                    cl_int err = clWaitForEvents(1, &(eventList()));
+                    clWaitForEvents(1, &(eventList()));
                     /*
                  //   if (err != CL_SUCCESS)
        //                 printf("Wait error in kernel 12: %d\n", err);
@@ -1134,7 +1110,7 @@ printf("count12: %d\n", count12);*/
                 }
                 
             }
-            double t2 = gettime();
+            
         }
     }
 
@@ -1419,7 +1395,7 @@ printf("count12: %d\n", count12);*/
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
 //         //   if (err != CL_SUCCESS)
  //  //             printf("Wait error in kernel 15: %d\n", err);
 
@@ -1455,7 +1431,7 @@ printf("count12: %d\n", count12);*/
             }
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
              //   if (err != CL_SUCCESS)
    //                 printf("Wait error in kernel 17: %d\n", err);
           //      else
@@ -1556,7 +1532,7 @@ printf("count12: %d\n", count12);*/
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
          //   if (err != CL_SUCCESS)//
          //       printf("Wait error in kernel 18: %d\n", err);
        //     else
@@ -1587,7 +1563,7 @@ printf("count12: %d\n", count12);*/
             }
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
              //   if (err != CL_SUCCESS)
              //       printf("Wait error in kernel 19: %d\n", err);
             }
@@ -1615,7 +1591,7 @@ printf("count12: %d\n", count12);*/
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
          //   if (err != CL_SUCCESS)//
                // printf("Wait error in kernel 20: %d\n", err);
           //  else
@@ -1682,7 +1658,7 @@ printf("count12: %d\n", count12);*/
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
 
         }
     }
@@ -1742,7 +1718,7 @@ printf("count12: %d\n", count12);*/
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
 
         }
     }
@@ -1830,7 +1806,7 @@ printf("count12: %d\n", count12);*/
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
 
         }
     }
@@ -1946,7 +1922,7 @@ printf("count12: %d\n", count12);*/
             }
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
 
             }
         }
@@ -1970,7 +1946,7 @@ printf("count12: %d\n", count12);*/
 count25++;
 printf("count25: %d\n", count25);
 */
-            double t1 = gettime();
+            
             if (gpu_run)
             {
                 kernel.setArg(0, I.buffers[peers[0]]);  //out_grad
@@ -1984,13 +1960,13 @@ printf("count25: %d\n", count25);
             }
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
              //   if (err != CL_SUCCESS)
    //                 printf("Wait error in kernel 25: %d\n", err);
               //  else
                 //printf("kernel 25 finish\n");
             }
-            double t2 = gettime();
+            
         }
     }
 
@@ -2033,7 +2009,7 @@ printf("count25: %d\n", count25);
             }
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
              //   if (err != CL_SUCCESS)
    //                 printf("Wait error in kernel 25: %d\n", err);
               //  else
@@ -2278,7 +2254,7 @@ printf("count25: %d\n", count25);
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
          //   if (err != CL_SUCCESS)//
            //     printf("Wait error in kernel 33: %d\n", err);
           //  else
@@ -2468,7 +2444,7 @@ printf("count25: %d\n", count25);
             }
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
              //   if (err != CL_SUCCESS)
    //                 printf("Wait error in kernel 34: %d\n", err);
               //  else
@@ -2521,7 +2497,7 @@ printf("count25: %d\n", count25);
 
             if (gpu_run)
             {
-                cl_int err = clWaitForEvents(1, &(eventList()));
+                clWaitForEvents(1, &(eventList()));
              //   if (err != CL_SUCCESS)
    //                 printf("Wait error in kernel 35: %d\n", err);
               //  else
@@ -2627,7 +2603,7 @@ printf("count25: %d\n", count25);
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
          //   if (err != CL_SUCCESS)//
 //                printf("Wait error in kernel 36: %d\n", err);
         }
@@ -2660,8 +2636,6 @@ printf("count25: %d\n", count25);
             {
                 for (int cin = start[2]; cin < global_size[2]; cin++)
                 {
-                    int offset = (rin * in_width + cin) * in_depth + channel;
-
                     float gradient = 0;
                     int in_index = ((n * in_height + rin) * in_width + cin) * in_depth + channel;
                     for (int pr = 0; pr < pool_height; pr++)
@@ -2733,7 +2707,7 @@ printf("count25: %d\n", count25);
         }
         if (gpu_run)
         {
-            cl_int err = clWaitForEvents(1, &(eventList()));
+            clWaitForEvents(1, &(eventList()));
          //   if (err != CL_SUCCESS)//
 //                printf("Wait error in kernel 9: %d\n", err);
         }

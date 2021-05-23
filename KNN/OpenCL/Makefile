@@ -1,4 +1,4 @@
-include ./make.config
+include ../make.config
 
 #C compiler
 CC = g++

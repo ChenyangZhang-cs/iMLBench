@@ -5,6 +5,10 @@
 #include <string.h>
 #include "linear.h"
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
+
+
 //local_size 109
 //local_id   0-108
 //group_id   0-4
@@ -33,16 +37,13 @@ void rsquaredOMP(data_t* dataset,
                  int cpusize) {
     rsquared_t* dist = (rsquared_t*)malloc(sizeof(rsquared_t) * local_size);
 
-    for (size_t group_id = 0; group_id < (cpusize / local_size); group_id++) {
+    for (int group_id = 0; group_id < (cpusize / local_size); group_id++) {
         for (int loc_id = local_size - 1; loc_id >= 0; loc_id--) {
-            size_t glob_id = loc_id + group_id * 58;
+            int glob_id = loc_id + group_id * 58;
             dist[loc_id].actual = pow((dataset[glob_id].x - mean), 2);
             float y_estimated = dataset[glob_id].x * equation[0] + equation[1];
             dist[loc_id].estimated = pow((y_estimated - mean), 2);
-            for (
-                size_t i = (local_size / 2), old_i = local_size;
-                i > 0;
-                old_i = i, i /= 2) {
+            for (int i = (local_size / 2), old_i = local_size; i > 0; old_i = i, i /= 2) {
                 if (loc_id < i) {
                     dist[loc_id].actual += dist[loc_id + i].actual;
                     dist[loc_id].estimated += dist[loc_id + i].estimated;
@@ -66,15 +67,15 @@ void linear_regressionOMP(
     sum_t* interns = (sum_t*)malloc(sizeof(sum_t) * local_size);
     //int cpusize = local_size * group_id_size * cpu_offset / 100;
 
-    for (size_t group_id = 0; group_id < (cpusize / local_size); group_id++) {
+    for (int group_id = 0; group_id < (cpusize / local_size); group_id++) {
         for (int loc_id = local_size - 1; loc_id >= 0; loc_id--) {
-            size_t glob_id = loc_id + group_id * 58;
+            int glob_id = loc_id + group_id * 58;
             interns[loc_id].sumx = dataset[glob_id].x;
             interns[loc_id].sumy = dataset[glob_id].y;
             interns[loc_id].sumxy = (dataset[glob_id].x * dataset[glob_id].y);
             interns[loc_id].sumxsq = (dataset[glob_id].x * dataset[glob_id].x);
             for (
-                size_t i = (local_size / 2), old_i = local_size;
+                int i = (local_size / 2), old_i = local_size;
                 i > 0;
                 old_i = i, i /= 2) {
                 if (loc_id < i) {
@@ -343,7 +344,7 @@ void create_dataset(linear_param_t* params, data_t* dataset) {
     char* token;
     char buf[1024];
 
-    for (int i = 0; i < params->size && fgets(buf, 1024, ptr_file) != NULL; i++) {
+    for (int i = 0; i < int(params->size) && fgets(buf, 1024, ptr_file) != NULL; i++) {
         token = strtok(buf, "\t");
         dataset[i].x = atof(token);
         token = strtok(NULL, "\t");
@@ -405,9 +406,7 @@ void r_squared(
         globalWorkSize[0] += params->wg_size - (params->size % params->wg_size);
 
     size_t global_offset[2] = {0, 1};
-    size_t global_work[3] = {0, 1, 1};
     bool gpu_run = true, cpu_run = false;
-    int work_dim = 1;
 
     size_t cpu_global_size[3];
     cpu_global_size[0] = cpu_offset * globalWorkSize[0] / 100;
@@ -461,7 +460,7 @@ void r_squared(
     rsquared_t final = {0};
     rsquared_t* results = (rsquared_t*)result_buffer;
 
-    for (int i = 0; i < params->wg_count; i++) {
+    for (int i = 0; i < int(params->wg_count); i++) {
         final.actual += results[i].actual;
         final.estimated += results[i].estimated;
     }
@@ -508,9 +507,7 @@ void parallelized_regression(
         globalWorkSize[0] += params->wg_size - (params->size % params->wg_size);
 
     size_t global_offset[2] = {0, 1};
-    size_t global_work[3] = {0, 1, 1};
     bool gpu_run = true, cpu_run = false;
-    int work_dim = 1;
 
     size_t cpu_global_size[3];
     cpu_global_size[0] = cpu_offset * globalWorkSize[0] / 100;
@@ -564,7 +561,7 @@ void parallelized_regression(
     sum_t final = {0};
     sum_t* results = (sum_t*)result_buffer;  //
 
-    for (int i = 0; i < params->wg_count; i++) {
+    for (int i = 0; i < int(params->wg_count); i++) {
         final.sumx += results[i].sumx;
         final.sumy += results[i].sumy;
         final.sumxy += results[i].sumxy;

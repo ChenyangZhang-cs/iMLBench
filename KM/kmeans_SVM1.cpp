@@ -283,7 +283,7 @@ void deallocateMemory() {
 }
 
 int main(int argc, char** argv) {
-    printf("WG size of kernel_swap = %d, WG size of kernel_kmeans = %d, work size = %d \n", BLOCK_SIZE, BLOCK_SIZE2, CL_DEVICE_MAX_WORK_GROUP_SIZE);
+    // printf("WG size of kernel_swap = %d, WG size of kernel_kmeans = %d, work size = %d \n", BLOCK_SIZE, BLOCK_SIZE2, CL_DEVICE_MAX_WORK_GROUP_SIZE);
 
     setup(argc, argv);
     shutdown();

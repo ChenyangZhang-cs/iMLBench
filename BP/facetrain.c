@@ -22,29 +22,21 @@ void backprop_face() {
     int i;
     float out_err, hid_err;
     net = bpnn_create(layer_size, 16, 1);  // (16, 1 can not be changed)
-
-    printf("Input layer size : %d\n", layer_size);
     load(net);
-    //entering the training kernel, only one iteration
-    printf("Starting training kernel\n");
-    double starttime = gettime();
     bpnn_train_kernel(net, &out_err, &hid_err);
-    double endtime = gettime();
-    printf("CAUTION: time: %lf mseconds\n", 1000.0 * (endtime - starttime));
-
     bpnn_free(net);
-    printf("\nFinish the training for one iteration\n");
 }
 
 int setup(int argc, char** argv) {
     int seed;
 
     if (argc != 3) {
-        fprintf(stderr, "usage: backprop <num of input elements>\n");
+        fprintf(stderr, "usage: backprop <num of input elements> <cpu offset>\n");
         exit(0);
     }
     layer_size = atoi(argv[1]);
     cpu_offset = atoi(argv[2]);
+    printf("CPU offset: %d\n", cpu_offset);
 
     if (layer_size % 16 != 0) {
         fprintf(stderr, "The number of input points must be divided by 16\n");

@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <string>
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #define _CRT_SECURE_NO_DEPRECATE 1
 
@@ -205,13 +206,13 @@ int allocate(int n_points, int n_features, int n_clusters, float** feature) {
     }
 
     // read the kernel core source
-    char* tempchar = "./kmeans.cl";
+    char tempchar[] = "./kmeans.cl";
     FILE* fp = fopen(tempchar, "rb");
     if (!fp) {
         printf("ERROR: unable to open '%s'\n", tempchar);
         return -1;
     }
-    fread(source + strlen(source), sourcesize, 1, fp);
+    size_t tmp_s = fread(source + strlen(source), sourcesize, 1, fp);
     fclose(fp);
 
     // OpenCL initialization
@@ -231,8 +232,8 @@ int allocate(int n_points, int n_features, int n_clusters, float** feature) {
         return -1;
     }
 
-    char* kernel_kmeans_c = "kmeans_kernel_c";
-    char* kernel_swap = "kmeans_swap";
+    char kernel_kmeans_c[] = "kmeans_kernel_c";
+    char kernel_swap[] = "kmeans_swap";
 
     kernel_s = clCreateKernel(prog, kernel_kmeans_c, &err);
     if (err != CL_SUCCESS) {
@@ -276,15 +277,12 @@ int allocate(int n_points, int n_features, int n_clusters, float** feature) {
     err &= clSetKernelArg(kernel2, 3, sizeof(cl_int), (void*)&n_features);
 
     err = clEnqueueNDRangeKernel(cmd_queue, kernel2, 1, NULL, global_work, &local_work_size, 0, 0, 0);
-    // err = clEnqueueNDRangeKernel(cmd_queue, kernel2, 1, NULL, global_work, &local_work_size, 0, 0, 0);
 
     if (err != CL_SUCCESS) {
-        printf("ERROR1: clEnqueueNDRangeKernel()=>%d, globalsize: %d,localSize: %d,maxsize:%d failed\n",
-               err, global_work[0] * global_work[1], local_work_size, CL_DEVICE_MAX_WORK_ITEM_SIZES);
+        printf("ERROR1\n");
         return -1;
     }
 
-    //	membership_OCL = (int*) malloc(n_points * sizeof(int));
 }
 
 void deallocateMemory() {
@@ -297,9 +295,9 @@ void deallocateMemory() {
 }
 
 int main(int argc, char** argv) {
-    printf("WG size of kernel_swap = %d, WG size of kernel_kmeans = %d, work size = %d \n", BLOCK_SIZE, BLOCK_SIZE2, CL_DEVICE_MAX_WORK_GROUP_SIZE);
+    // printf("WG size of kernel_swap = %d, WG size of kernel_kmeans = %d, work size = %d \n", BLOCK_SIZE, BLOCK_SIZE2, CL_DEVICE_MAX_WORK_GROUP_SIZE);
     int corenum = omp_get_num_procs();
-    printf("Core number: %d\n", corenum);
+    // printf("Core number: %d\n", corenum);
     setup(argc, argv);
     shutdown();
 }
@@ -424,9 +422,10 @@ int kmeansOCL(float** feature, /* in: [npoints][nfeatures] */
 
 /*---< usage() >------------------------------------------------------------*/
 void usage(char* argv0) {
-    char* help =
+    char help[] =
         "\nUsage: %s [switches] -i filename\n\n"
         "    -i filename      :file containing data to be clustered\n"
+        "    -f               :cpu offset                            [default=0]\n"
         "    -m max_nclusters :maximum number of clusters allowed    [default=5]\n"
         "    -n min_nclusters :minimum number of clusters allowed    [default=5]\n"
         "    -t threshold     :threshold value                       [default=0.001]\n"
@@ -498,7 +497,7 @@ int setup(int argc, char** argv) {
                 break;
             case 'f':
                 cpu_offset = atoi(optarg);
-                printf("cpu_offset = %d\n", cpu_offset);
+                printf("CPU offset: %d\n", cpu_offset);
                 break;
             case '?':
                 usage(argv[0]);
@@ -525,8 +524,8 @@ int setup(int argc, char** argv) {
             fprintf(stderr, "Error: no such file (%s)\n", filename);
             exit(1);
         }
-        read(infile, &npoints, sizeof(int));
-        read(infile, &nfeatures, sizeof(int));
+        ssize_t tmp_ss = read(infile, &npoints, sizeof(int));
+        tmp_ss = read(infile, &nfeatures, sizeof(int));
 
         /* allocate space for features[][] and read attributes of all objects */
         buf = (float*)malloc(npoints * nfeatures * sizeof(float));
@@ -536,7 +535,7 @@ int setup(int argc, char** argv) {
         for (i = 1; i < npoints; i++)
             features[i] = features[i - 1] + nfeatures;
 
-        read(infile, buf, npoints * nfeatures * sizeof(float));
+        tmp_ss = read(infile, buf, npoints * nfeatures * sizeof(float));
 
         close(infile);
     } else {
@@ -579,9 +578,9 @@ int setup(int argc, char** argv) {
     }
     //io_timing = omp_get_wtime() - io_timing;
 
-    printf("\nI/O completed\n");
-    printf("\nNumber of objects: %d\n", npoints);
-    printf("Number of features: %d\n", nfeatures);
+    // printf("\nI/O completed\n");
+    // printf("\nNumber of objects: %d\n", npoints);
+    // printf("Number of features: %d\n", nfeatures);
     /* ============== I/O end ==============*/
 
     // create co_run
@@ -601,7 +600,7 @@ int setup(int argc, char** argv) {
         gpu_run = false;
     }
     global_offset[0] = cpu_global_size[0];
-    printf("CPU size: %d, GPU size: %d\n", cpu_global_size[0], gpu_global_size[0]);
+    // printf("CPU size: %d, GPU size: %d\n", cpu_global_size[0], gpu_global_size[0]);
 
     // error check for clusters
     if (npoints < min_nclusters) {
@@ -636,7 +635,7 @@ int setup(int argc, char** argv) {
                     isRMSE,           /* calculate RMSE */
                     nloops);          /* number of iteration for each number of clusters */
     double endTime = gettime();
-    printf("Time: %lf\n", 1000.0 * (endTime - startTime));
+    printf("Time: %lf ms\n\n", 1000.0 * (endTime - startTime));
 
     //cluster_timing = omp_get_wtime() - cluster_timing;
 
@@ -657,7 +656,6 @@ int setup(int argc, char** argv) {
 
     len = (float)((max_nclusters - min_nclusters + 1) * nloops);
 
-    printf("Number of Iteration: %d\n", nloops);
     //printf("Time for I/O: %.5fsec\n", io_timing);
     //printf("Time for Entire Clustering: %.5fsec\n", cluster_timing);
 
