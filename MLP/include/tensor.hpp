@@ -22,7 +22,7 @@
 #pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif
 #define __CL_ENABLE_EXCEPTIONS
-#include "cl2.hpp"
+#include "cl.hpp"
 
 namespace clnet {
 typedef long long int64;
@@ -57,8 +57,8 @@ struct Tensor {
 	void dependent_on(Tensor* precusor);
 	void shape_with(std::vector<int64> sizes);
 	void upload(DeviceInstance& I, const std::vector<cl::Event>* preconditions = nullptr);
-	void download(DeviceInstance& I, float *pointer, const std::vector<cl::Event>* preconditions = nullptr);
-        void download(DeviceInstance& I, const std::vector<cl::Event> *preconditions = nullptr);
+	void download(DeviceInstance& I, const std::vector<cl::Event>* preconditions = nullptr);
+
 	static std::vector<Tensor*> ALL;
 };
 

@@ -215,7 +215,7 @@ int main(int argc, char* argv[])
     printf("CPU offset: %d\n", cpu_offset);
     double t2 = gettime();
 
-    printf("Total time: %lf ms\n\n", 1000.0 *(t2-t1));
+    printf("Total time: %lf\n\n", (t2-t1));
 
     free(distances);
     //Free memory

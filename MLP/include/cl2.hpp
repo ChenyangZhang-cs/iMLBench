@@ -7880,6 +7880,7 @@ public:
 
         if (event != NULL && err == CL_SUCCESS)
             *event = tmp;
+
         return err;
     }
 

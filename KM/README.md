@@ -29,7 +29,7 @@ K-means (KM) is a clustering algorithm that is used to learn features in either 
     -o               :output cluster center coordinates     [default=off]
 
     **example:**
-    $ ./kmeans -i ./data/204800.txt -f $[i*10]
+    $ ./kmeans -i ../data/204800.txt -f $[i*10]
 
 ### Expected Result
 run with `-o` to see the result.

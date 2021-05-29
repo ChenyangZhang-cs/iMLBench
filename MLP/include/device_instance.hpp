@@ -38,9 +38,7 @@ struct DeviceInstance {
 	int work_group_size;
 	int local_memory_size;
 	cl::CommandQueue queue;
-	//std::unordered_map<Tensor*, cl::Buffer> buffers;
-    // zcy
-    std::unordered_map<Tensor*, float*> buffers;
+	std::unordered_map<Tensor*, cl::Buffer> buffers;
 	std::unordered_map<Tensor*, cl::Event> events;
 	std::unordered_map<Tensor*, float*> pointers;
 	std::unordered_map<Tensor*, std::vector<cl::Kernel>> kernels;
@@ -141,11 +139,6 @@ template <typename T> T optional(std::unordered_map<std::string, std::string>& m
 template <typename T> bool read_file_content(const std::string file, std::basic_string<T>& content);
 void describe_tensor(Tensor* tensor, bool only_name = true);
 std::string formatWithComma(size_t num);
-
-
-/* omp function from kernels.cl */
-void stochastic_gradient_descent_omp(float *params, float *params_grad,float learning_rate, 
-                    float weight_decay, float momentum, float *velocity, int start, int global_size);   
 
 #define replace_once(str, key, value) str.replace(str.find(key), sizeof(key) - 1, value)
 void replace_all(std::string& content, const std::string key, const std::string replace);
